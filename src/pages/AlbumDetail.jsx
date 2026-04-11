@@ -1,186 +1,93 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { songAPI } from "../services/api";
 import { Play, Heart, MoreHorizontal, Clock } from "lucide-react";
+import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
 import "./AlbumDetail.css";
 
 const AlbumDetail = () => {
+  const { id } = useParams();
   const { playSong, currentSong, isPlaying } = usePlayerStore();
-  const [isAlbumLiked, setIsAlbumLiked] = useState(false);
+  const [album, setAlbum] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSong, setSelectedSong] = useState(null);
 
-  const albumInfo = {
-    id: 1,
-    title: "Divide",
-    artist: "Ed Sheeran",
-    releaseYear: 2017,
-    coverUrl:
-      "https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96",
-    totalDuration: "46:14",
-  };
+  useEffect(() => {
+    const fetchAlbum = async () => {
+      try {
+        const res = await songAPI.getAlbumById(id);
+        if (res.success) setAlbum(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAlbum();
+  }, [id]);
 
-  const albumSongs = [
-    {
-      id: "1",
-      track_number: 1,
-      title: "Eraser",
-      artist: "Ed Sheeran",
-      album: "Divide",
-      duration: "3:47",
-      coverUrl: albumInfo.coverUrl,
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    },
-    {
-      id: "2",
-      track_number: 2,
-      title: "Castle on the Hill",
-      artist: "Ed Sheeran",
-      album: "Divide",
-      duration: "4:21",
-      coverUrl: albumInfo.coverUrl,
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    },
-    {
-      id: "3",
-      track_number: 3,
-      title: "Shape of You",
-      artist: "Ed Sheeran",
-      album: "Divide",
-      duration: "3:53",
-      coverUrl: albumInfo.coverUrl,
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    },
-    {
-      id: "4",
-      track_number: 4,
-      title: "Perfect",
-      artist: "Ed Sheeran",
-      album: "Divide",
-      duration: "4:23",
-      coverUrl: albumInfo.coverUrl,
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-    },
-  ];
+  if (isLoading)
+    return <div className="p-10 text-white">Đang tải album...</div>;
+  if (!album)
+    return <div className="p-10 text-white">Không tìm thấy album.</div>;
 
   return (
     <div className="album-detail-container">
-      {/* 1. Header Album */}
       <div className="album-header">
-        <img
-          src={albumInfo.coverUrl}
-          alt="album cover"
-          className="album-cover"
-        />
+        <img src={album.cover_url} alt="cover" className="album-cover" /> [cite:
+        162]
         <div className="album-info">
           <span>Album</span>
-          <h1>{albumInfo.title}</h1>
+          <h1>{album.title}</h1> [cite: 166]
           <div className="album-meta">
-            <span className="album-artist-name">{albumInfo.artist}</span>
+            <span className="album-artist-name">{album.artist?.name}</span>
             <span className="album-year-tracks">
-              • {albumInfo.releaseYear} • {albumSongs.length} bài hát,{" "}
-              {albumInfo.totalDuration}
-            </span>
+              {" "}
+              • {album.release_year} • {album.songs?.length} bài hát
+            </span>{" "}
+            [cite: 170]
           </div>
         </div>
       </div>
 
-      {/*nút thao tác */}
       <div className="album-content">
         <div className="album-actions">
           <button
             className="btn-play-album"
-            onClick={() => albumSongs.length > 0 && playSong(albumSongs[0])}
-            title="Phát tất cả"
+            onClick={() => album.songs?.length > 0 && playSong(album.songs[0])}
           >
-            <Play size={28} fill="currentColor" className="ml-1" />
-          </button>
-
-          <button
-            className="btn-icon-action"
-            onClick={() => setIsAlbumLiked(!isAlbumLiked)}
-            title="Lưu vào Thư viện"
-          >
-            <Heart
-              size={32}
-              fill={isAlbumLiked ? "#10b981" : "none"}
-              color={isAlbumLiked ? "#10b981" : "currentColor"}
-            />
-          </button>
-
-          <button className="btn-icon-action">
-            <MoreHorizontal size={32} />
+            <Play size={28} fill="currentColor" />
           </button>
         </div>
 
-        {/*danh sách bài hát */}
-        <div
-          className="album-song-row"
-          style={{
-            borderBottom: "1px solid #1f2937",
-            color: "#9ca3af",
-            marginBottom: "1rem",
-            cursor: "default",
-          }}
-        >
-          <div style={{ textAlign: "center" }}>#</div>
-          <div>Tiêu đề</div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              paddingRight: "1rem",
-            }}
-          >
-            <Clock size={16} />
-          </div>
-        </div>
-
-        {/*danh sách */}
-        <div>
-          {albumSongs.map((song) => {
-            const isThisSongPlaying = currentSong?.id === song.id && isPlaying;
-
+        <div className="album-song-list">
+          {album.songs?.map((song, index) => {
+            const isThisPlaying =
+              currentSong?.song_id === song.song_id && isPlaying;
             return (
               <div
-                key={song.id}
+                key={song.song_id}
                 className="album-song-row"
                 onDoubleClick={() => playSong(song)}
               >
                 <div className="song-number">
-                  <span
-                    className="song-number-text"
-                    style={{
-                      color: isThisSongPlaying ? "#10b981" : "",
-                      fontWeight: isThisSongPlaying ? "bold" : "",
-                    }}
-                  >
-                    {isThisSongPlaying ? "▶" : song.track_number}
-                  </span>
-                  <button
-                    className="hover-play"
-                    style={{ display: "none" }}
-                    onClick={() => playSong(song)}
-                  >
-                    <Play size={16} fill="currentColor" />
-                  </button>
+                  {isThisPlaying ? "▶" : index + 1}
                 </div>
-
                 <div className="song-title-group">
                   <div
-                    className={`song-title ${isThisSongPlaying ? "playing" : ""}`}
+                    className={`song-title ${isThisPlaying ? "playing" : ""}`}
                   >
                     {song.title}
                   </div>
-                  <div className="song-artist">{song.artist}</div>
+                  <div className="song-artist">{album.artist?.name}</div>
                 </div>
-
                 <div className="song-actions">
+                  <span>{song.duration_formatted}</span> [cite: 266]
                   <button
                     className="hover-btn"
-                    title="Lưu vào Bài hát đã thích"
+                    onClick={() => setSelectedSong(song)}
                   >
-                    <Heart size={18} />
-                  </button>
-                  <span>{song.duration}</span>
-                  <button className="hover-btn" title="Thêm">
                     <MoreHorizontal size={20} />
                   </button>
                 </div>
@@ -189,6 +96,11 @@ const AlbumDetail = () => {
           })}
         </div>
       </div>
+      <AddToPlaylistModal
+        isOpen={!!selectedSong}
+        onClose={() => setSelectedSong(null)}
+        song={selectedSong}
+      />
     </div>
   );
 };

@@ -1,315 +1,554 @@
-import React, { useState } from "react";
-import {
-  Camera,
-  CheckCircle,
-  Clock,
-  Music,
-  Heart,
-  BarChart2,
-} from "lucide-react";
-import "./Profile.css";
+import React, { useState, useEffect, useRef } from "react";
+import { userAPI, authAPI } from "../services/api";
+import { Camera, Save, KeyRound } from "lucide-react";
 
 const Profile = () => {
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [isPremium, setIsPremium] = useState(false);
+  // Trạng thái dữ liệu
+  const [profile, setProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const chartData = [
-    { day: "T2", hours: 2, height: "30%" },
-    { day: "T3", hours: 3.5, height: "50%" },
-    { day: "T4", hours: 1, height: "15%" },
-    { day: "T5", hours: 5, height: "80%" },
-    { day: "T6", hours: 4, height: "60%" },
-    { day: "T7", hours: 7, height: "100%" },
-    { day: "CN", hours: 6, height: "85%" },
-  ];
+  // Trạng thái Form Đổi mật khẩu
+  const [passwords, setPasswords] = useState({
+    old_password: "",
+    new_password: "",
+  });
+
+  // Trạng thái thông báo
+  const [message, setMessage] = useState({ text: "", type: "" });
+  const fileInputRef = useRef(null);
+
+  // 1. LẤY THÔNG TIN HỒ SƠ
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await userAPI.getProfile();
+        if (res.success) setProfile(res.data);
+      } catch (error) {
+        showMessage(error.message, "error");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const showMessage = (text, type = "success") => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: "", type: "" }), 3000);
+  };
+
+  // 2. CẬP NHẬT CHỮ (TÊN, BIO, NGÀY SINH...)
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      // Chỉ gửi lên những trường cho phép sửa
+      const updateData = {
+        display_name: profile.display_name,
+        bio: profile.bio,
+        country: profile.country,
+        date_of_birth: profile.date_of_birth,
+        gender: profile.gender,
+      };
+      const res = await userAPI.updateProfile(updateData);
+      if (res.success) {
+        setProfile(res.data);
+        showMessage("Cập nhật hồ sơ thành công!");
+      }
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  // 3. ĐỔI MẬT KHẨU
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwords.new_password.length < 8) {
+      return showMessage("Mật khẩu mới phải tối thiểu 8 ký tự", "error");
+    }
+    try {
+      const res = await authAPI.changePassword(passwords);
+      if (res.success) {
+        showMessage("Đổi mật khẩu thành công!");
+        setPasswords({ old_password: "", new_password: "" }); // Xóa trắng form
+      }
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  // 4. UPLOAD ẢNH ĐẠI DIỆN
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate nhanh ở Frontend
+    if (file.size > 5 * 1024 * 1024)
+      return showMessage("File ảnh tối đa 5MB", "error");
+
+    try {
+      const res = await userAPI.uploadAvatar(file);
+      if (res.success) {
+        // Cập nhật lại ảnh trên màn hình ngay lập tức
+        setProfile({ ...profile, avatar_url: res.data.avatar_url });
+        showMessage("Cập nhật ảnh đại diện thành công!");
+      }
+    } catch (error) {
+      showMessage(error.message, "error");
+    }
+  };
+
+  if (isLoading)
+    return (
+      <div style={{ padding: "50px", color: "white" }}>
+        Đang tải hồ sơ... ⏳
+      </div>
+    );
+  if (!profile)
+    return (
+      <div style={{ padding: "50px", color: "white" }}>
+        Không thể tải thông tin hồ sơ.
+      </div>
+    );
 
   return (
-    <div className="profile-container">
-      <div className="profile-header">
-        <div className="avatar-wrapper">
-          <img
-            src="https://arknights.wiki.gg/wiki/Togawa_Sakiko#/media/File:Togawa_Sakiko_Skin_1.png"
-            alt="avatar"
-          />
-          <button className="avatar-upload-btn" title="Đổi ảnh đại diện">
-            <Camera size={18} />
-          </button>
-        </div>
-        <div className="user-info">
-          <h1>Giau ten</h1>
-          <p>a@gmail.com</p>
-          {isPremium ? (
-            <span className="badge-premium">Premium (Hết hạn: 12/2026)</span>
-          ) : (
-            <span
-              style={{
-                color: "#9ca3af",
-                fontSize: "0.875rem",
-                marginTop: "0.5rem",
-                display: "block",
-              }}
-            >
-              Tài khoản Free
-            </span>
-          )}
-        </div>
-      </div>
+    <div
+      style={{
+        padding: "40px",
+        color: "white",
+        maxWidth: "800px",
+        margin: "0 auto",
+      }}
+    >
+      <h1 style={{ fontSize: "40px", marginBottom: "30px" }}>Hồ sơ của bạn</h1>
 
-      <div className="tabs-header">
-        <button
-          className={`tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
-          onClick={() => setActiveTab("dashboard")}
+      {/* HIỂN THỊ THÔNG BÁO TOAST */}
+      {message.text && (
+        <div
+          style={{
+            padding: "15px",
+            marginBottom: "20px",
+            borderRadius: "8px",
+            fontWeight: "bold",
+            backgroundColor: message.type === "error" ? "#e91429" : "#1ed760",
+            color: message.type === "error" ? "white" : "black",
+          }}
         >
-          Thống kê cá nhân
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "settings" ? "active" : ""}`}
-          onClick={() => setActiveTab("settings")}
-        >
-          Chỉnh sửa Hồ sơ
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "premium" ? "active" : ""}`}
-          onClick={() => setActiveTab("premium")}
-        >
-          Gói Premium
-        </button>
-      </div>
-
-      {activeTab === "dashboard" && (
-        <div className="tab-content fade-in">
-          <div className="stats-grid">
-            <div className="stat-card">
-              <h3>128</h3>
-              <p>
-                <Clock
-                  size={16}
-                  style={{ display: "inline", verticalAlign: "text-bottom" }}
-                />{" "}
-                Giờ nghe nhạc
-              </p>
-            </div>
-            <div className="stat-card">
-              <h3>342</h3>
-              <p>
-                <Music
-                  size={16}
-                  style={{ display: "inline", verticalAlign: "text-bottom" }}
-                />{" "}
-                Bài hát đã nghe
-              </p>
-            </div>
-            <div className="stat-card">
-              <h3>58</h3>
-              <p>
-                <Heart
-                  size={16}
-                  style={{ display: "inline", verticalAlign: "text-bottom" }}
-                />{" "}
-                Bài hát đã thích
-              </p>
-            </div>
-            <div className="stat-card">
-              <h3>12</h3>
-              <p>
-                <BarChart2
-                  size={16}
-                  style={{ display: "inline", verticalAlign: "text-bottom" }}
-                />{" "}
-                Playlist đã tạo
-              </p>
-            </div>
-          </div>
-
-          <div className="chart-container">
-            <h2 className="chart-title">Thời gian nghe nhạc tuần này (Giờ)</h2>
-            <div className="bar-chart">
-              {chartData.map((item, index) => (
-                <div
-                  key={index}
-                  className="bar-col"
-                  title={`${item.hours} giờ`}
-                >
-                  <div
-                    className="bar-fill"
-                    style={{ height: item.height }}
-                  ></div>
-                  <span className="bar-label">{item.day}</span>
-                </div>
-              ))}
-            </div>
-            <p
-              style={{
-                textAlign: "center",
-                marginTop: "1.5rem",
-                color: "#10b981",
-                fontWeight: "bold",
-              }}
-            >
-              Bạn nghe nhiều hơn 69% người dùng tháng này!
-            </p>
-          </div>
+          {message.text}
         </div>
       )}
 
-      {activeTab === "settings" && (
-        <div className="tab-content fade-in">
+      <div style={{ display: "flex", gap: "50px", alignItems: "flex-start" }}>
+        {/* KHU VỰC 1: AVATAR & THÔNG TIN CHUNG */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "20px",
+            width: "250px",
+          }}
+        >
           <div
             style={{
-              backgroundColor: "#1f2937",
-              padding: "2rem",
-              borderRadius: "1rem",
-              marginBottom: "2rem",
+              width: "200px",
+              height: "200px",
+              borderRadius: "50%",
+              backgroundColor: "#282828",
+              position: "relative",
+              overflow: "hidden",
+              cursor: "pointer",
+              boxShadow: "0 4px 15px rgba(0,0,0,0.5)",
             }}
+            onClick={() => fileInputRef.current.click()}
+            title="Bấm để đổi ảnh đại diện"
           >
-            <h2
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt="Avatar"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Camera size={50} color="#b3b3b3" />
+              </div>
+            )}
+            {/* Lớp overlay khi hover */}
+            <div
               style={{
-                marginBottom: "1.5rem",
-                fontSize: "1.25rem",
-                fontWeight: "bold",
+                position: "absolute",
+                bottom: 0,
+                width: "100%",
+                background: "rgba(0,0,0,0.6)",
+                padding: "10px 0",
+                textAlign: "center",
+                color: "white",
+                fontSize: "14px",
               }}
             >
-              Thông tin cơ bản
-            </h2>
-            <div className="form-group">
-              <label>Tên hiển thị</label>
-              <input type="text" defaultValue="Giau ten" />
+              Đổi ảnh
             </div>
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                defaultValue="a@gmail.com"
-                disabled
-                style={{ opacity: 0.5, cursor: "not-allowed" }}
-              />
-            </div>
-            <button className="btn-save">Lưu thay đổi</button>
           </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/png, image/jpeg"
+            style={{ display: "none" }}
+          />
 
           <div
             style={{
-              backgroundColor: "#1f2937",
-              padding: "2rem",
-              borderRadius: "1rem",
+              width: "100%",
+              background: "#181818",
+              padding: "15px",
+              borderRadius: "8px",
+              textAlign: "center",
+            }}
+          >
+            <p
+              style={{
+                margin: "0 0 5px 0",
+                color: "#b3b3b3",
+                fontSize: "14px",
+              }}
+            >
+              Email đăng nhập
+            </p>
+            <p style={{ margin: 0, fontWeight: "bold" }}>{profile.email}</p>
+            <div
+              style={{
+                marginTop: "15px",
+                display: "inline-block",
+                padding: "5px 15px",
+                borderRadius: "50px",
+                fontSize: "12px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                backgroundColor:
+                  profile.plan === "premium" ? "#1ed760" : "#535353",
+                color: profile.plan === "premium" ? "black" : "white",
+              }}
+            >
+              Gói: {profile.plan}
+            </div>
+          </div>
+        </div>
+
+        {/* KHU VỰC 2: CÁC FORM CẬP NHẬT */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: "40px",
+          }}
+        >
+          {/* FORM THÔNG TIN CÁ NHÂN */}
+          <form
+            onSubmit={handleUpdateProfile}
+            style={{
+              background: "#181818",
+              padding: "30px",
+              borderRadius: "8px",
             }}
           >
             <h2
               style={{
-                marginBottom: "1.5rem",
-                fontSize: "1.25rem",
+                fontSize: "20px",
+                marginBottom: "20px",
+                borderBottom: "1px solid #333",
+                paddingBottom: "10px",
+              }}
+            >
+              Chỉnh sửa hồ sơ
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "20px",
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    color: "#b3b3b3",
+                  }}
+                >
+                  Tên hiển thị
+                </label>
+                <input
+                  type="text"
+                  value={profile.display_name || ""}
+                  onChange={(e) =>
+                    setProfile({ ...profile, display_name: e.target.value })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                    background: "#282828",
+                    color: "white",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    color: "#b3b3b3",
+                  }}
+                >
+                  Quốc gia
+                </label>
+                <input
+                  type="text"
+                  value={profile.country || ""}
+                  onChange={(e) =>
+                    setProfile({ ...profile, country: e.target.value })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                    background: "#282828",
+                    color: "white",
+                  }}
+                />
+              </div>
+              <div style={{ gridColumn: "span 2" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    color: "#b3b3b3",
+                  }}
+                >
+                  Tiểu sử (Bio)
+                </label>
+                <textarea
+                  value={profile.bio || ""}
+                  onChange={(e) =>
+                    setProfile({ ...profile, bio: e.target.value })
+                  }
+                  rows="3"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                    background: "#282828",
+                    color: "white",
+                    resize: "none",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    color: "#b3b3b3",
+                  }}
+                >
+                  Ngày sinh
+                </label>
+                <input
+                  type="date"
+                  value={
+                    profile.date_of_birth
+                      ? profile.date_of_birth.split("T")[0]
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setProfile({ ...profile, date_of_birth: e.target.value })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                    background: "#282828",
+                    color: "white",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    color: "#b3b3b3",
+                  }}
+                >
+                  Giới tính
+                </label>
+                <select
+                  value={profile.gender || ""}
+                  onChange={(e) =>
+                    setProfile({ ...profile, gender: e.target.value })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                    background: "#282828",
+                    color: "white",
+                  }}
+                >
+                  <option value="">Chưa xác định</option>
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
+                  <option value="other">Khác</option>
+                </select>
+              </div>
+            </div>
+            <button
+              type="submit"
+              style={{
+                marginTop: "20px",
+                padding: "12px 30px",
+                borderRadius: "50px",
+                background: "white",
+                color: "black",
                 fontWeight: "bold",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <Save size={18} /> Lưu thay đổi
+            </button>
+          </form>
+
+          {/* FORM ĐỔI MẬT KHẨU */}
+          <form
+            onSubmit={handleChangePassword}
+            style={{
+              background: "#181818",
+              padding: "30px",
+              borderRadius: "8px",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "20px",
+                marginBottom: "20px",
+                borderBottom: "1px solid #333",
+                paddingBottom: "10px",
               }}
             >
               Đổi mật khẩu
             </h2>
-            <div className="form-group">
-              <label>Mật khẩu hiện tại</label>
-              <input type="password" placeholder="••••••••" />
-            </div>
-            <div className="form-group">
-              <label>Mật khẩu mới</label>
-              <input type="password" placeholder="••••••••" />
-            </div>
-            <div className="form-group">
-              <label>Xác nhận mật khẩu mới</label>
-              <input type="password" placeholder="••••••••" />
-            </div>
-            <button className="btn-save">Cập nhật mật khẩu</button>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "premium" && (
-        <div className="tab-content fade-in">
-          <h2
-            style={{
-              textAlign: "center",
-              marginBottom: "3rem",
-              fontSize: "2rem",
-            }}
-          >
-            Chọn gói cước phù hợp với bạn
-          </h2>
-          <div className="premium-grid">
-            <div className="plan-card">
-              <h3>Free Plan</h3>
-              <div className="plan-price">
-                0đ{" "}
-                <span
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "20px",
+              }}
+            >
+              <div>
+                <label
                   style={{
-                    fontSize: "1rem",
-                    color: "#9ca3af",
-                    fontWeight: "normal",
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    color: "#b3b3b3",
                   }}
                 >
-                  /tháng
-                </span>
-              </div>
-              <ul className="plan-features">
-                <li>
-                  <CheckCircle size={18} color="#10b981" /> Nghe nhạc tiêu chuẩn
-                  (128kbps)
-                </li>
-                <li>
-                  <CheckCircle size={18} color="#10b981" /> Có chứa quảng cáo
-                </li>
-                <li>
-                  <CheckCircle size={18} color="#10b981" /> Bỏ qua tối đa 6
-                  bài/giờ
-                </li>
-              </ul>
-              <button className="btn-plan btn-free" disabled>
-                Gói hiện tại
-              </button>
-            </div>
-
-            <div className="plan-card premium">
-              <h3 style={{ color: "#f59e0b" }}>Premium Pro</h3>
-              <div className="plan-price">
-                99999.000đ{" "}
-                <span
+                  Mật khẩu hiện tại
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={passwords.old_password}
+                  onChange={(e) =>
+                    setPasswords({ ...passwords, old_password: e.target.value })
+                  }
                   style={{
-                    fontSize: "1rem",
-                    color: "#9ca3af",
-                    fontWeight: "normal",
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                    background: "#282828",
+                    color: "white",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    color: "#b3b3b3",
                   }}
                 >
-                  /tháng
-                </span>
+                  Mật khẩu mới
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={passwords.new_password}
+                  onChange={(e) =>
+                    setPasswords({ ...passwords, new_password: e.target.value })
+                  }
+                  placeholder="Tối thiểu 8 ký tự"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #333",
+                    background: "#282828",
+                    color: "white",
+                  }}
+                />
               </div>
-              <ul className="plan-features">
-                <li>
-                  <CheckCircle size={18} color="#f59e0b" /> Âm thanh chất lượng
-                  cao (320kbps/Lossless)
-                </li>
-                <li>
-                  <CheckCircle size={18} color="#f59e0b" /> Không bao giờ có
-                  quảng cáo
-                </li>
-                <li>
-                  <CheckCircle size={18} color="#f59e0b" /> Chuyển bài không
-                  giới hạn
-                </li>
-                <li>
-                  <CheckCircle size={18} color="#f59e0b" /> Nghe nhạc Offline
-                </li>
-              </ul>
-              <button
-                className="btn-plan btn-pro"
-                onClick={() => {
-                  setIsPremium(true);
-                  alert(
-                    "Chúc mừng bạn đã nâng cấp thành công lên gói Premium!",
-                  );
-                }}
-              >
-                {isPremium ? "Đã kích hoạt" : "Nâng cấp ngay"}
-              </button>
             </div>
-          </div>
+            <button
+              type="submit"
+              style={{
+                marginTop: "20px",
+                padding: "12px 30px",
+                borderRadius: "50px",
+                background: "transparent",
+                border: "1px solid #b3b3b3",
+                color: "white",
+                fontWeight: "bold",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <KeyRound size={18} /> Đổi mật khẩu
+            </button>
+          </form>
         </div>
-      )}
+      </div>
     </div>
   );
 };

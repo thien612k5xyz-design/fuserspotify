@@ -1,229 +1,284 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { playlistAPI } from "../services/api";
 import { usePlayerStore } from "../store/usePlayerStore";
-import {
-  Play,
-  Clock,
-  MoreHorizontal,
-  Trash2,
-  Edit2,
-  Music,
-} from "lucide-react";
-import "./PlaylistDetail.css";
+import { LikeButton } from "../components/LikeButton";
+import { Music, Play, Trash2 } from "lucide-react";
 
 const PlaylistDetail = () => {
-  const { playSong, currentSong, isPlaying } = usePlayerStore();
-  const [playlistInfo, setPlaylistInfo] = useState({
-    id: 1,
-    name: "Nhạc 🐧",
-    description: "Những bản nhạc không lời giúp tăng cường sự tập trung.",
-    coverUrl:
-      "https://i.scdn.co/image/ab67706f00000003b5f97305d2188ab1a1bd4966",
-    totalDuration: "10:46",
-  });
+  const { id } = useParams(); // Lấy ID playlist từ đường dẫn
+  const navigate = useNavigate();
+  const playSong = usePlayerStore((state) => state.playSong);
 
-  const [playlistSongs, setPlaylistSongs] = useState([
-    {
-      id: "4",
-      title: "nnn",
-      artist: "sakiko",
-      album: "1",
-      duration: "3:08",
-      coverUrl:
-        "https://i.scdn.co/image/ab67616d0000b27341ea22b31278bf6641ab3b1e",
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-    },
-    {
-      id: "5",
-      title: "x",
-      artist: "ruma",
-      album: "2",
-      duration: "4:18",
-      coverUrl:
-        "https://i.scdn.co/image/ab67616d0000b27341ea22b31278bf6641ab3b1e",
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
-    },
-    {
-      id: "6",
-      title: "ff",
-      artist: "discord mess",
-      album: "3",
-      duration: "3:20",
-      coverUrl:
-        "https://i.scdn.co/image/ab67616d0000b273c02cb4275ccb98260b09dc69",
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
-    },
-  ]);
+  const [playlist, setPlaylist] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleRemoveSong = (e, songId) => {
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        const res = await playlistAPI.getPlaylistById(id);
+        if (res.success) setPlaylist(res.data);
+      } catch (error) {
+        console.error("Lỗi lấy chi tiết playlist:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (id) fetchDetail();
+  }, [id]);
+
+  // Hàm xóa bài khỏi playlist
+  const handleRemoveSong = async (songId, e) => {
     e.stopPropagation();
-    if (window.confirm("Bạn có chắc chắn muốn xóa bài này khỏi playlist?")) {
-      setPlaylistSongs((prev) => prev.filter((song) => song.id !== songId));
+    if (!window.confirm("Xóa bài này khỏi playlist?")) return;
+    try {
+      await playlistAPI.removeSongFromPlaylist(id, songId);
+      // Xóa thành công thì lọc bài hát đó khỏi giao diện
+      setPlaylist((prev) => ({
+        ...prev,
+        songs: prev.songs.filter((song) => song.song_id !== songId),
+        total_songs: prev.total_songs - 1,
+      }));
+    } catch (error) {
+      alert("Lỗi khi xóa bài hát");
     }
   };
 
-  const handleRenamePlaylist = () => {
-    const newName = window.prompt(
-      "Nhập tên mới cho Playlist:",
-      playlistInfo.name,
+  // Hàm xóa cả Playlist
+  const handleDeletePlaylist = async () => {
+    if (
+      !window.confirm("Bạn có chắc chắn muốn xóa toàn bộ playlist này không?")
+    )
+      return;
+    try {
+      await playlistAPI.deletePlaylist(id);
+      navigate("/my-playlists"); // Xóa xong đuổi về trang danh sách
+    } catch (error) {
+      alert("Lỗi khi xóa playlist");
+    }
+  };
+
+  if (isLoading)
+    return <div style={{ padding: "50px", color: "white" }}>Đang tải...</div>;
+  if (!playlist)
+    return (
+      <div style={{ padding: "50px", color: "white" }}>
+        Playlist không tồn tại.
+      </div>
     );
-    if (newName && newName.trim() !== "") {
-      setPlaylistInfo((prev) => ({ ...prev, name: newName }));
-    }
-  };
-  const handleDeletePlaylist = () => {
-    if (window.confirm("Hành động này không thể hoàn tác. Xóa Playlist này?")) {
-      alert("Đã xóa Playlist");
-    }
-  };
 
   return (
-    <div className="playlist-detail-container">
-      <div className="playlist-header">
-        {playlistSongs.length > 0 ? (
-          <img
-            src={playlistInfo.coverUrl}
-            alt="cover"
-            className="playlist-cover"
-          />
-        ) : (
-          <div className="playlist-cover">
-            <Music size={64} color="#9ca3af" />
-          </div>
-        )}
-
-        <div className="playlist-info">
-          <span>Playlist</span>
-          <h1 onClick={handleRenamePlaylist} title="Nhấn để đổi tên">
-            {playlistInfo.name}
-          </h1>
-          <p>
-            Bạn • {playlistSongs.length} bài hát • {playlistInfo.totalDuration}{" "}
-            [cite: 55]
-          </p>
-        </div>
-      </div>
-
-      <div className="playlist-content">
-        <div className="playlist-actions">
-          <button
-            className="play-all-btn"
-            onClick={() =>
-              playlistSongs.length > 0 && playSong(playlistSongs[0])
-            }
-            title="Phát tất cả"
-          >
-            <Play size={28} fill="currentColor" className="ml-1" />
-          </button>
-
-          <button
-            className="icon-action-btn"
-            onClick={handleRenamePlaylist}
-            title="Đổi tên Playlist"
-          >
-            <Edit2 size={24} />
-          </button>
-
-          <button
-            className="icon-action-btn"
-            onClick={handleDeletePlaylist}
-            title="Xóa Playlist"
-          >
-            <Trash2 size={24} />
-          </button>
-        </div>
-
+    <div style={{ padding: "30px", color: "white" }}>
+      {/* KHU VỰC HEADER PLAYLIST */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: "24px",
+          marginBottom: "40px",
+        }}
+      >
         <div
-          className="playlist-item"
           style={{
-            borderBottom: "1px solid #1f2937",
-            color: "#9ca3af",
-            marginBottom: "1rem",
-            cursor: "default",
+            width: "232px",
+            height: "232px",
+            background: "#282828",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
-          <div style={{ textAlign: "center" }}>#</div>
-          <div>Tiêu đề</div>
-          <div>Album</div>
+          {playlist.cover_url ? (
+            <img
+              src={playlist.cover_url}
+              alt="cover"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <Music size={80} color="#b3b3b3" />
+          )}
+        </div>
+        <div>
+          <p
+            style={{
+              margin: 0,
+              textTransform: "uppercase",
+              fontSize: "12px",
+              fontWeight: "bold",
+            }}
+          >
+            Playlist
+          </p>
+          <h1 style={{ fontSize: "72px", margin: "10px 0", fontWeight: "900" }}>
+            {playlist.name}
+          </h1>
+          <p style={{ margin: "0 0 10px 0", color: "#b3b3b3" }}>
+            {playlist.description}
+          </p>
           <div
             style={{
               display: "flex",
-              justifyContent: "flex-end",
-              paddingRight: "1rem",
+              alignItems: "center",
+              gap: "5px",
+              fontSize: "14px",
+              color: "#b3b3b3",
             }}
           >
-            <Clock size={16} />
+            <span style={{ color: "white", fontWeight: "bold" }}>
+              {playlist.owner?.display_name || "Bạn"}
+            </span>
+            <span>•</span>
+            <span>{playlist.total_songs || 0} bài hát</span>
           </div>
         </div>
+      </div>
 
-        <div className="playlist-list">
-          {playlistSongs.map((song, index) => {
-            const isThisSongPlaying = currentSong?.id === song.id && isPlaying;
-            return (
-              <div
-                key={song.id}
-                className="playlist-item"
-                onDoubleClick={() => playSong(song)}
-              >
-                <div
-                  style={{
-                    textAlign: "center",
-                    color: isThisSongPlaying ? "#10b981" : "#9ca3af",
-                  }}
-                >
-                  {index + 1}
-                </div>
-                <div
-                  style={{ display: "flex", gap: "1rem", alignItems: "center" }}
-                >
-                  <img src={song.coverUrl} alt="cover" />
-                  <div>
-                    <div
-                      className="playlist-title"
-                      style={{ color: isThisSongPlaying ? "#10b981" : "white" }}
-                    >
-                      {song.title}
-                    </div>
-                    <div className="playlist-artist">{song.artist}</div>
-                  </div>
-                </div>
-                <div style={{ color: "#9ca3af", fontSize: "0.875rem" }}>
-                  {song.album}
-                </div>
+      {/* KHU VỰC NÚT ĐIỀU KHIỂN CHUNG */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "20px",
+          marginBottom: "30px",
+        }}
+      >
+        {playlist.songs?.length > 0 && (
+          <button
+            onClick={() => playSong(playlist.songs[0])} // Phát bài đầu tiên
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              background: "#1db954",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Play
+              size={28}
+              fill="black"
+              color="black"
+              style={{ marginLeft: "4px" }}
+            />
+          </button>
+        )}
+        <button
+          onClick={handleDeletePlaylist}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "#b3b3b3",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "bold",
+          }}
+        >
+          Xóa Playlist
+        </button>
+      </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    alignItems: "center",
-                    gap: "1rem",
-                    paddingRight: "1rem",
-                  }}
-                >
-                  <button
-                    className="remove-song-btn"
-                    onClick={(e) => handleRemoveSong(e, song.id)}
-                    title="Xóa khỏi Playlist"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  <span style={{ color: "#9ca3af" }}>{song.duration}</span>
-                </div>
-              </div>
-            );
-          })}
+      {/* DANH SÁCH BÀI HÁT TRONG PLAYLIST */}
+      <div>
+        <div
+          style={{
+            display: "flex",
+            borderBottom: "1px solid #333",
+            paddingBottom: "10px",
+            marginBottom: "15px",
+            color: "#b3b3b3",
+            fontSize: "14px",
+          }}
+        >
+          <span style={{ width: "30px" }}>#</span>
+          <span style={{ flex: 1 }}>Tiêu đề</span>
+          <span style={{ width: "100px", textAlign: "right" }}>Thời lượng</span>
+        </div>
 
-          {playlistSongs.length === 0 && (
-            <p
+        {playlist.songs?.length > 0 ? (
+          playlist.songs.map((song, index) => (
+            <div
+              key={song.song_id}
+              className="song-item-row"
               style={{
-                color: "#9ca3af",
-                textAlign: "center",
-                marginTop: "3rem",
+                display: "flex",
+                alignItems: "center",
+                padding: "10px",
+                borderRadius: "8px",
               }}
             >
-              Playlist này chưa có bài hát nào. Hãy tìm nhạc và thêm vào nhé!
+              <span style={{ width: "30px", color: "#b3b3b3" }}>
+                {index + 1}
+              </span>
+              <div
+                onClick={() => playSong(song)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  flex: 1,
+                  cursor: "pointer",
+                  gap: "15px",
+                }}
+              >
+                <img
+                  src={song.cover_url}
+                  alt="cover"
+                  style={{ width: "40px", height: "40px", borderRadius: "4px" }}
+                />
+                <div>
+                  <h4 style={{ margin: 0, fontSize: "16px" }}>{song.title}</h4>
+                  <p style={{ margin: 0, fontSize: "14px", color: "#b3b3b3" }}>
+                    {song.artist?.name}
+                  </p>
+                </div>
+              </div>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "15px" }}
+              >
+                <LikeButton
+                  songId={song.song_id}
+                  initialIsLiked={song.is_liked}
+                  initialLikeCount={song.like_count}
+                />
+                <button
+                  onClick={(e) => handleRemoveSong(song.song_id, e)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#b3b3b3",
+                    cursor: "pointer",
+                    padding: "5px",
+                  }}
+                  title="Xóa khỏi playlist"
+                >
+                  <Trash2 size={18} />
+                </button>
+                <span
+                  style={{
+                    color: "#b3b3b3",
+                    fontSize: "14px",
+                    width: "50px",
+                    textAlign: "right",
+                  }}
+                >
+                  {song.duration_formatted}
+                </span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div
+            style={{ padding: "50px", textAlign: "center", color: "#b3b3b3" }}
+          >
+            <p style={{ fontSize: "18px", fontWeight: "bold", color: "white" }}>
+              Hãy tìm nội dung cho playlist của bạn
             </p>
-          )}
-        </div>
+            <p>Vào trang tìm kiếm hoặc trang chủ để chọn bài hát.</p>
+          </div>
+        )}
       </div>
     </div>
   );

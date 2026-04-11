@@ -1,162 +1,141 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { songAPI } from "../services/api";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { Heart, Play, Clock } from "lucide-react";
-import "./LikedSongs.css";
+import { LikeButton } from "../components/LikeButton";
+import { Heart } from "lucide-react";
 
 const LikedSongs = () => {
-  const { playSong, currentSong, isPlaying } = usePlayerStore();
-  const initialLikedSongs = [
-    {
-      id: "1",
-      title: "ok",
-      artist: "surtr",
-      album: "1",
-      duration: "3:53",
-      liked_at: "2024-04-01T10:00:00Z",
-      coverUrl:
-        "https://o2.edu.vn/wp-content/uploads/2021/11/icon-chim-canh-cut-la-gi.jpg",
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    },
-    {
-      id: "3",
-      title: "ysganhteam",
-      artist: "yasou",
-      album: "2",
-      duration: "3:23",
-      liked_at: "2024-04-03T15:00:00Z",
-      coverUrl:
-        "https://o2.edu.vn/wp-content/uploads/2021/11/icon-chim-canh-cut-la-gi.jpg",
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    },
-  ];
-  const sortedSongs = [...initialLikedSongs].sort(
-    (a, b) => new Date(b.liked_at) - new Date(a.liked_at),
-  );
-  const [likedSongs, setLikedSongs] = useState(sortedSongs);
-  const handleUnlike = (e, songId) => {
-    e.stopPropagation();
-    setLikedSongs((prev) => prev.filter((song) => song.id !== songId));
-  };
+  const [likedSongs, setLikedSongs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const playSong = usePlayerStore((state) => state.playSong);
+
+  useEffect(() => {
+    const fetchLikedSongs = async () => {
+      try {
+        const res = await songAPI.getLikedSongs(); // GET /api/songs/liked
+        if (res.success) setLikedSongs(res.data);
+      } catch (error) {
+        console.error("Lỗi tải bài hát đã thích:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchLikedSongs();
+  }, []);
+
+  if (isLoading)
+    return (
+      <div style={{ color: "white", padding: "30px" }}>
+        Đang tìm lại những bài hát của bạn ...
+      </div>
+    );
 
   return (
-    <div className="liked-container">
-      <div className="liked-header">
-        <div className="liked-icon-box">
-          <Heart size={64} fill="currentColor" color="white" />
+    <div
+      className="liked-songs-page"
+      style={{ padding: "30px", color: "white" }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "20px",
+          marginBottom: "40px",
+        }}
+      >
+        <div
+          style={{
+            width: "200px",
+            height: "200px",
+            background: "linear-gradient(135deg, #450af5, #c4efd9)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            borderRadius: "8px",
+          }}
+        >
+          <Heart size={80} fill="white" color="white" />
         </div>
-        <div className="liked-info">
-          <span>Playlist</span>
-          <h1>Bài hát đã thích</h1>
-          <p>Bạn • {likedSongs.length} bài hát</p>
+        <div>
+          <p
+            style={{
+              margin: 0,
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              fontSize: "12px",
+            }}
+          >
+            Playlist
+          </p>
+          <h1 style={{ fontSize: "72px", margin: "10px 0" }}>
+            Bài hát đã thích
+          </h1>
+          <p style={{ margin: 0, color: "#b3b3b3" }}>
+            {likedSongs.length} bài hát
+          </p>
         </div>
       </div>
 
-      <div className="liked-content">
-        <button
-          className="play-all-btn"
-          onClick={() => likedSongs.length > 0 && playSong(likedSongs[0])}
-        >
-          <Play size={28} fill="currentColor" className="ml-1" />
-        </button>
-
-        <div
-          className="liked-item"
-          style={{
-            borderBottom: "1px solid #1f2937",
-            color: "#9ca3af",
-            marginBottom: "1rem",
-            cursor: "default",
-          }}
-        >
-          <div style={{ textAlign: "center" }}>#</div>
-          <div>Tiêu đề</div>
-          <div>Album</div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              paddingRight: "1rem",
-            }}
-          >
-            <Clock size={16} />
-          </div>
-        </div>
-
-        <div className="liked-list">
-          {likedSongs.map((song, index) => {
-            const isThisSongPlaying = currentSong?.id === song.id && isPlaying;
-            return (
-              <div
-                key={song.id}
-                className="liked-item"
-                onDoubleClick={() => playSong(song)}
-              >
-                <div
-                  style={{
-                    textAlign: "center",
-                    color: isThisSongPlaying ? "#10b981" : "#9ca3af",
-                  }}
-                >
-                  {index + 1}
-                </div>
-                <div
-                  style={{ display: "flex", gap: "1rem", alignItems: "center" }}
-                >
-                  <img src={song.coverUrl} alt="cover" />
-                  <div>
-                    <div
-                      className="liked-title"
-                      style={{ color: isThisSongPlaying ? "#10b981" : "white" }}
-                    >
-                      {song.title}
-                    </div>
-                    <div className="liked-artist">{song.artist}</div>
-                  </div>
-                </div>
-                <div style={{ color: "#9ca3af", fontSize: "0.875rem" }}>
-                  {song.album}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "1.5rem",
-                    color: "#10b981",
-                    paddingRight: "1rem",
-                  }}
-                >
-                  <button
-                    onClick={(e) => handleUnlike(e, song.id)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#10b981",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Heart
-                      size={18}
-                      fill="currentColor"
-                      className="hover:scale-110"
-                    />
-                  </button>
-                  <span style={{ color: "#9ca3af" }}>{song.duration}</span>
-                </div>
-              </div>
-            );
-          })}
-          {likedSongs.length === 0 && (
-            <p
+      <div className="song-list">
+        {likedSongs.length > 0 ? (
+          likedSongs.map((song, index) => (
+            <div
+              key={song.song_id}
+              className="song-item-row"
               style={{
-                color: "#9ca3af",
-                textAlign: "center",
-                marginTop: "2rem",
+                display: "flex",
+                alignItems: "center",
+                padding: "10px",
+                borderRadius: "8px",
               }}
             >
-              Bạn chưa có bài hát yêu thích nào.
-            </p>
-          )}
-        </div>
+              <span style={{ width: "30px", color: "#b3b3b3" }}>
+                {index + 1}
+              </span>
+              <div
+                onClick={() => playSong(song)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  flex: 1,
+                  cursor: "pointer",
+                  gap: "15px",
+                }}
+              >
+                <img
+                  src={song.cover_url}
+                  alt=""
+                  style={{ width: "40px", height: "40px" }}
+                />
+                <div>
+                  <h4 style={{ margin: 0 }}>{song.title}</h4>
+                  <p style={{ margin: 0, fontSize: "13px", color: "#b3b3b3" }}>
+                    {song.artist?.name}
+                  </p>
+                </div>
+              </div>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "20px" }}
+              >
+                {/* Nút Like ở đây sẽ giúp bạn "unlike" bài hát ngay tại chỗ */}
+                <LikeButton
+                  songId={song.song_id}
+                  initialIsLiked={true}
+                  initialLikeCount={song.like_count}
+                />
+                <span style={{ color: "#b3b3b3", fontSize: "14px" }}>
+                  {song.duration_formatted}
+                </span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p
+            style={{ textAlign: "center", marginTop: "50px", color: "#b3b3b3" }}
+          >
+            Bạn chưa thả tim bài hát nào cả. Hãy khám phá thêm nhé!
+          </p>
+        )}
       </div>
     </div>
   );

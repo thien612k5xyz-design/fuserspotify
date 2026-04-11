@@ -1,98 +1,120 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { songAPI } from "../services/api";
+import { AuthContext } from "../context/AuthContext";
+import { Play, Flame, Music, Crown } from "lucide-react";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { Play, TrendingUp, Music, ChevronRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import "./Home.css";
 
 const Home = () => {
-  const playSong = usePlayerStore((state) => state.playSong);
-  const [isPremium] = useState(false);
-  const navigate = useNavigate();
-  const trendingSong = {
-    id: "t1",
-    title: "Shape of You",
-    artist: "Ed Sheeran",
-    coverUrl:
-      "https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96",
-    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-  };
-  const topSongs = [
-    {
-      id: "1",
-      title: "light",
-      artist: "wkd",
-      coverUrl:
-        "https://cdn.donmai.us/sample/64/30/__togawa_sakiko_arknights_and_2_more_drawn_by_yukuso_dabiandang__sample-643018782c88c017e3ad1bbbbfab4d98.jpg",
-      audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    },
-  ];
-  const genres = ["Pop", "Hip-Hop", "EDM", "K-Pop"];
+  const { user } = useContext(AuthContext);
+  const { playSong } = usePlayerStore();
+
+  const [genres, setGenres] = useState([]);
+  const [songs, setSongs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHomeData = async () => {
+      try {
+        setIsLoading(true);
+        const [genreRes, songRes] = await Promise.all([
+          songAPI.getGenres(),
+          songAPI.getSongs(),
+        ]);
+        if (genreRes.success) setGenres(genreRes.data);
+        if (songRes.success) setSongs(songRes.data);
+      } catch (error) {
+        console.error("Lỗi tải Home:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchHomeData();
+  }, []);
+
+  // Lấy bài hát đầu tiên làm Banner Trending
+  const trendingSong = songs.length > 0 ? songs[0] : null;
+
+  if (isLoading)
+    return (
+      <div className="loading" style={{ color: "white", padding: "50px" }}>
+        Giai điệu đang đến... 🎵
+      </div>
+    );
 
   return (
     <div className="home-container">
-      {!isPremium && (
+      {/* 1. Banner Nâng cấp (Chỉ hiện khi user là 'free') */}
+      {user?.plan === "free" && (
         <div className="ad-banner">
           <div>
-            <h3>Trải nghiệm âm nhạc không giới hạn!</h3>
+            <h3>Nâng cấp gói Premium</h3>
+            <p>Nghe nhạc không quảng cáo và chất lượng cao hơn ngay hôm nay.</p>
           </div>
           <button className="btn-upgrade">Nâng cấp ngay</button>
         </div>
       )}
 
-      <section>
-        <h2 className="section-title">Đang thịnh hành</h2>
+      {/* 2. Danh sách Thể loại (Dạng trượt ngang) */}
+      <div className="section-title">Khám phá thể loại</div>
+      <div className="genre-list">
+        {genres.map((g) => (
+          <button key={g.genre_id} className="genre-btn">
+            {g.name}
+          </button>
+        ))}
+      </div>
+
+      {/* 3. Banner Trending rực rỡ */}
+      {trendingSong && (
         <div className="trending-banner">
-          <img src={trendingSong.coverUrl} alt="Banner" />
+          <img src={trendingSong.cover_url} alt="Trending" />
           <div className="trending-overlay"></div>
           <div className="trending-content">
-            <h1>{trendingSong.title}</h1>
-            <p className="text-lg text-gray-300 mb-4">{trendingSong.artist}</p>
-            <button
-              onClick={() => playSong(trendingSong)}
-              className="btn-play-primary"
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                color: "#10b981",
+                fontWeight: "bold",
+              }}
             >
-              <Play size={20} fill="currentColor" /> Phát ngay
+              <Flame size={20} fill="#10b981" /> TRENDING NOW
+            </span>
+            <h1>{trendingSong.title}</h1>
+            <button
+              className="btn-play-primary"
+              onClick={() => playSong(trendingSong)}
+            >
+              <Play size={20} fill="black" /> PHÁT NGAY
             </button>
           </div>
         </div>
-      </section>
+      )}
 
-      <section>
-        <h2 className="section-title">Thể loại phổ biến</h2>
-        <div className="genre-list scrollbar-hide">
-          {genres.map((genre, index) => (
-            <button
-              key={index}
-              className="genre-btn"
-              onClick={() => navigate("/genre")}
-            >
-              {genre}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="section-title">Gợi ý cho bạn</h2>
-        <div className="song-grid">
-          {topSongs.map((song) => (
-            <div key={song.id} className="song-card">
-              <div className="song-cover-wrapper">
-                <img src={song.coverUrl} alt={song.title} />
-                <button
-                  onClick={() => playSong(song)}
-                  className="btn-play-overlay"
-                >
-                  <Play size={24} fill="currentColor" className="ml-1" />
-                </button>
-              </div>
-              <h4>{song.title}</h4>
-              <p>{song.artist}</p>
+      {/* 4. Lưới bài hát gợi ý */}
+      <div className="section-title">Gợi ý cho bạn</div>
+      <div className="song-grid">
+        {songs.map((song) => (
+          <div
+            key={song.song_id}
+            className="song-card"
+            onClick={() => playSong(song)}
+          >
+            <div className="song-cover-wrapper">
+              <img src={song.cover_url} alt={song.title} />
+              <button className="btn-play-overlay">
+                <Play size={24} fill="black" />
+              </button>
             </div>
-          ))}
-        </div>
-      </section>
+            <h4>{song.title}</h4>
+            <p>{song.artist?.name || "Nghệ sĩ"}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
+
 export default Home;

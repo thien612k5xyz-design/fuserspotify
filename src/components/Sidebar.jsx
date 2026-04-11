@@ -68,7 +68,7 @@ export const Sidebar = () => {
             <div className="icon-box gradient">
               <Library size={20} fill="currentColor" />
             </div>
-            Test Chi Tiết Playlist
+            Playlist của tôi
           </button>
         </div>
       </div>

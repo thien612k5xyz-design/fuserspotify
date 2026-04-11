@@ -1,0 +1,138 @@
+.search-container {
+  padding: 2rem;
+  padding-bottom: 8rem;
+}
+
+.search-box {
+  position: relative;
+  max-width: 42rem;
+  margin-bottom: 2.5rem;
+}
+.search-icon-absolute {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+.search-input {
+  width: 100%;
+  padding: 1rem 1rem 1rem 3rem;
+  border-radius: 9999px;
+  background-color: #1f2937;
+  color: white;
+  font-size: 1.125rem;
+  border: none;
+  outline: none;
+}
+.search-input:focus {
+  box-shadow: 0 0 0 2px white;
+}
+
+.empty-state {
+  text-align: center;
+  color: #9ca3af;
+  margin-top: 5rem;
+}
+.empty-state h2 {
+  font-size: 1.5rem;
+  color: white;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.results-section {
+  margin-bottom: 2.5rem;
+}
+.results-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.song-result-list {
+  background-color: rgba(31, 41, 55, 0.4);
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+}
+.song-result-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+.song-result-item:hover {
+  background-color: #374151;
+}
+.song-result-item img {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.25rem;
+  object-fit: cover;
+}
+.song-result-item h4 {
+  font-weight: bold;
+  color: white;
+  margin-left: 1rem;
+}
+.song-result-item p {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin-left: 1rem;
+}
+
+.flex-grid {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.artist-card {
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.artist-card:hover {
+  transform: scale(1.05);
+}
+.artist-card img {
+  width: 8rem;
+  height: 8rem;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.album-card {
+  background-color: #1f2937;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  width: 10rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.album-card:hover {
+  background-color: #374151;
+}
+.album-card img {
+  width: 100%;
+  aspect-ratio: 1/1;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.album-card h4 {
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.album-card p {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}

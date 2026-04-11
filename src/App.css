@@ -1,0 +1,11 @@
+.app-container {
+  display: flex;
+  height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  background: linear-gradient(to bottom, #1f2937, #111827);
+  overflow-y: auto;
+  padding-bottom: 100px;
+}

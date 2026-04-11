@@ -1,0 +1,106 @@
+.liked-container {
+  padding-bottom: 8rem;
+}
+
+.liked-header {
+  background: linear-gradient(to bottom, #4c1d95, #111827);
+  padding: 5rem 2rem 2rem 2rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 2rem;
+}
+
+.liked-icon-box {
+  width: 200px;
+  height: 200px;
+  background: linear-gradient(135deg, #4f46e5, #93c5fd);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+}
+
+.liked-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.liked-info span {
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.liked-info h1 {
+  font-size: 4rem;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0 0 1rem 0;
+}
+
+.liked-info p {
+  color: #d1d5db;
+  font-weight: 600;
+}
+
+.liked-content {
+  padding: 2rem;
+}
+
+.play-all-btn {
+  width: 56px;
+  height: 56px;
+  background-color: #10b981;
+  color: black;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 2rem;
+  transition:
+    transform 0.2s,
+    background-color 0.2s;
+  box-shadow: 0 8px 15px rgba(16, 185, 129, 0.3);
+}
+
+.play-all-btn:hover {
+  transform: scale(1.05);
+  background-color: #34d399;
+}
+
+.liked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.liked-item {
+  display: grid;
+  grid-template-columns: 40px minmax(250px, 1fr) 200px 100px;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  align-items: center;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.liked-item:hover {
+  background-color: rgba(31, 41, 55, 0.8);
+}
+.liked-item img {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+}
+.liked-title {
+  font-weight: bold;
+}
+.liked-artist {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}

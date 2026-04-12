@@ -35,18 +35,16 @@ const AlbumDetail = () => {
   return (
     <div className="album-detail-container">
       <div className="album-header">
-        <img src={album.cover_url} alt="cover" className="album-cover" /> [cite:
-        162]
+        <img src={album.cover_url} alt="cover" className="album-cover" />
         <div className="album-info">
           <span>Album</span>
-          <h1>{album.title}</h1> [cite: 166]
+          <h1>{album.title}</h1>
           <div className="album-meta">
             <span className="album-artist-name">{album.artist?.name}</span>
             <span className="album-year-tracks">
               {" "}
               • {album.release_year} • {album.songs?.length} bài hát
             </span>{" "}
-            [cite: 170]
           </div>
         </div>
       </div>
@@ -83,7 +81,7 @@ const AlbumDetail = () => {
                   <div className="song-artist">{album.artist?.name}</div>
                 </div>
                 <div className="song-actions">
-                  <span>{song.duration_formatted}</span> [cite: 266]
+                  <span>{song.duration_formatted}</span>
                   <button
                     className="hover-btn"
                     onClick={() => setSelectedSong(song)}

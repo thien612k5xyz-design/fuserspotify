@@ -29,19 +29,16 @@ const Artist = () => {
         style={{ backgroundImage: `url(${artist.banner_url})` }}
       >
         {" "}
-        [cite: 321]
         <div className="artist-header-overlay"></div>
         <div className="artist-info">
           <span>
             <BadgeCheck size={20} fill="#10b981" color="white" /> Nghệ sĩ đã xác
             minh
           </span>{" "}
-          [cite: 326]
           <h1>{artist.name}</h1>
           <p className="artist-stats">
             {artist.monthly_listeners?.toLocaleString()} người nghe hàng tháng
           </p>{" "}
-          [cite: 331]
         </div>
       </div>
 

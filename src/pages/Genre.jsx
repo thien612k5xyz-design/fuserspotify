@@ -28,7 +28,7 @@ const Genre = () => {
     <div className="genre-container">
       {!selectedGenre ? (
         <>
-          <h1 className="genre-title">Duyệt tìm Thể loại</h1> [cite: 464]
+          <h1 className="genre-title">Duyệt tìm Thể loại</h1>
           <div className="genre-grid">
             {genres.map((genre) => (
               <div
@@ -52,7 +52,6 @@ const Genre = () => {
             <h1 className="genre-title">
               Thể loại: <span className="text-green">{selectedGenre.name}</span>
             </h1>{" "}
-            [cite: 492]
           </div>
           <div className="song-list-container">
             {songs.map((song, index) => (

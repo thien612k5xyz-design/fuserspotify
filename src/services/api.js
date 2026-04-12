@@ -47,7 +47,7 @@ export const authAPI = {
 };
 
 export const userAPI = {
-  // --- QUẢN LÝ THÔNG TIN CÁ NHÂN ---
+  // THÔNG TIN CÁ NHÂN 
   getProfile: () => fetchWithAuth("/users/profile", { method: "GET" }),
 
   updateProfile: (data) =>
@@ -76,21 +76,18 @@ export const userAPI = {
       body: JSON.stringify(planData),
     }),
 
-  // --- THỐNG KÊ CHI TIẾT (DASHBOARD) ---
-  // Lấy KPI và lịch sử nghe nhạc theo giai đoạn
+  // THỐNG KÊ CHI TIẾT 
   getStats: (period = "all", month = "", year = "") =>
     fetchWithAuth(`/user/stats?period=${period}&month=${month}&year=${year}`, {
       method: "GET",
     }),
 
-  // Lấy phân bổ thể loại nhạc
   getGenreDistribution: (period = "all", month = "", year = "") =>
     fetchWithAuth(
       `/user/genre-distribution?period=${period}&month=${month}&year=${year}`,
       { method: "GET" },
     ),
 
-  // Lấy Top 5 bài hát (Hàm này cần thiết để hiển thị danh sách bài hát bên dưới Dashboard)
   getTopTracks: (limit = 5) =>
     fetchWithAuth(`/user/top-tracks?limit=${limit}`, {
       method: "GET",
@@ -100,21 +97,21 @@ export const userAPI = {
 // BÀI HÁT
 
 export const songAPI = {
-  // Lấy danh sách bài hát (có hỗ trợ filter qua queryString)
+  // Lấy danh sách bài hát
   getSongs: (queryString = "") =>
     fetchWithAuth(`/songs${queryString}`, { method: "GET" }),
 
-  // Lấy chi tiết 1 bài hát
+  // Lấy chi tiết bài hát
   getSongById: (id) => fetchWithAuth(`/songs/${id}`, { method: "GET" }),
 
-  // Ghi nhận lịch sử nghe nhạc (Khi nghe >= 5s)
+  // Ghi nhận lịch sử nghe nhạc
   recordPlay: (id, playData) =>
     fetchWithAuth(`/songs/${id}/play`, {
       method: "POST",
       body: JSON.stringify(playData),
     }),
 
-  // Thích / Bỏ thích bài hát
+  // Thích/Bỏ thích bài hát
   toggleLike: (id) => fetchWithAuth(`/songs/${id}/like`, { method: "POST" }),
 
   // Lấy danh sách bài đã thích
@@ -123,7 +120,7 @@ export const songAPI = {
       method: "GET",
     }),
 
-  // Lấy danh sách bài vừa nghe gần đây
+  // Lấy danh sách bài vừa nghe
   getRecentSongs: () => fetchWithAuth("/songs/recent", { method: "GET" }),
 };
 

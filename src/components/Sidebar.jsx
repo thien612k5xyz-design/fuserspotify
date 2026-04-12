@@ -13,7 +13,7 @@ import {
   ListMusic,
   LogOut,
 } from "lucide-react";
-import "./Sidebar.css"; // Nhớ import file CSS vào đây!
+import "./Sidebar.css";
 
 export const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
@@ -109,7 +109,7 @@ export const Sidebar = () => {
 
       <div className="sidebar-divider"></div>
 
-      {/* KHU VỰC TÀI KHOẢN (ĐÁY SIDEBAR) */}
+      {/* KHU VỰC TÀI KHOẢN */}
       <div className="sidebar-footer">
         {user ? (
           <div className="user-info">

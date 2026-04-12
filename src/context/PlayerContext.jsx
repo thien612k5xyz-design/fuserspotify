@@ -3,37 +3,50 @@ import React, { createContext, useState, useRef, useEffect } from "react";
 export const PlayerContext = createContext();
 
 export const PlayerProvider = ({ children }) => {
-  const [currentSong, setCurrentSong] = useState(null); // Bài hát đang phát
-  const [isPlaying, setIsPlaying] = useState(false); // Trạng thái phát
-
-  // theAudioRef là một cái "mỏ neo" móc vào thẻ <audio> HTML
+  const [currentSong, setCurrentSong] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef(new Audio());
 
-  // Hàm được gọi khi user bấm vào 1 bài hát bất kỳ
+  // User bấm vào bài hát bất kỳ
   const playSong = (song) => {
     setCurrentSong(song);
-    setIsPlaying(true);
   };
 
-  // Hàm bật/tắt nhạc
+  // Bật/tắt nhạc
   const togglePlay = () => {
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
+    const audio = audioRef.current;
+    if (!audio.paused) {
+      audio.pause();
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      audio.play().catch((err) => console.error("Play error:", err));
     }
   };
 
-  // Lắng nghe: Cứ mỗi khi currentSong thay đổi (bấm bài mới), thì nạp link MP3 và phát
+  //đổi bài hát
   useEffect(() => {
     if (currentSong) {
-      audioRef.current.src = currentSong.file_url; // Lấy link mp3 từ API
-      audioRef.current.play();
-      setIsPlaying(true);
+      audioRef.current.pause();
+      audioRef.current.src = currentSong.file_url || currentSong.audioUrl;
+      audioRef.current
+        .play()
+        .catch((err) => console.error("Autoplay error:", err));
     }
   }, [currentSong]);
+
+  // Đồng bộ trạng thái isPlaying với sự kiện audio
+  useEffect(() => {
+    const audio = audioRef.current;
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
+
+    return () => {
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
+    };
+  }, []);
 
   return (
     <PlayerContext.Provider

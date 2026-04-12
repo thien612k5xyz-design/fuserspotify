@@ -32,7 +32,6 @@ const Home = () => {
     fetchHomeData();
   }, []);
 
-  // Lấy bài hát đầu tiên làm Banner Trending
   const trendingSong = songs.length > 0 ? songs[0] : null;
 
   if (isLoading)
@@ -44,7 +43,6 @@ const Home = () => {
 
   return (
     <div className="home-container">
-      {/* 1. Banner Nâng cấp (Chỉ hiện khi user là 'free') */}
       {user?.plan === "free" && (
         <div className="ad-banner">
           <div>
@@ -55,7 +53,6 @@ const Home = () => {
         </div>
       )}
 
-      {/* 2. Danh sách Thể loại (Dạng trượt ngang) */}
       <div className="section-title">Khám phá thể loại</div>
       <div className="genre-list">
         {genres.map((g) => (
@@ -65,7 +62,6 @@ const Home = () => {
         ))}
       </div>
 
-      {/* 3. Banner Trending rực rỡ */}
       {trendingSong && (
         <div className="trending-banner">
           <img src={trendingSong.cover_url} alt="Trending" />

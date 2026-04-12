@@ -12,8 +12,6 @@ import {
   Repeat,
   ListMusic,
 } from "lucide-react";
-
-// Import 2 vũ khí mới của chúng ta
 import { LikeButton } from "./LikeButton";
 import { AddToPlaylistButton } from "./AddToPlaylistButton";
 
@@ -47,7 +45,6 @@ export const MusicPlayer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Ghi nhận lịch sử nghe nhạc (>= 5 giây)
   const recordPlayHistory = async (songId, startTime) => {
     if (!songId) return;
     const durationPlayed = Math.floor((Date.now() - startTime) / 1000);
@@ -64,7 +61,7 @@ export const MusicPlayer = () => {
     }
   };
 
-  // Lắng nghe đổi bài hát
+  // đổi bài hát
   useEffect(() => {
     return () => {
       if (currentSong?.song_id) {
@@ -77,7 +74,7 @@ export const MusicPlayer = () => {
     if (currentSong) startTimeRef.current = Date.now();
   }, [currentSong]);
 
-  // Bắt sự kiện người dùng đóng tab trình duyệt
+  // người dùng đóng tab trình duyệt
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (currentSong?.song_id) {
@@ -111,7 +108,6 @@ export const MusicPlayer = () => {
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume]);
 
-  // Các hàm tiện ích của thẻ Audio
   const handleTimeUpdate = () => {
     if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
   };

@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from "react";
+import { authAPI } from "../services/api";
 
 export const AuthContext = createContext();
 
@@ -6,65 +7,78 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. KIỂM TRA ĐĂNG NHẬP (MOCK)
+  // Kiểm tra token
   useEffect(() => {
-    const token = localStorage.getItem("spotify_token");
-    if (token) {
-      // Nếu có token giả, tự động tạo ra một user giả lập y hệt Backend trả về
-      setUser({
-        user_id: 1,
-        email: "test@example.com",
-        display_name: "Vua Code Web",
-        role: "user",
-        plan: "premium", // Chỉnh thành 'free' nếu muốn test giao diện quảng cáo
-        avatar_url: null,
-        bio: "Yêu âm nhạc, thích code dạo",
-        country: "Vietnam",
-        date_of_birth: "2000-01-01",
-        gender: "male",
-      });
-    }
-    setLoading(false);
+    const checkAuth = async () => {
+      const token = localStorage.getItem("spotify_token");
+      if (token) {
+        try {
+          const res = await authAPI.getMe();
+          if (res.success) {
+            setUser(res.data);
+          }
+        } catch (error) {
+          console.error("Token hết hạn hoặc lỗi:", error.message);
+          localStorage.removeItem("spotify_token");
+        }
+      }
+      setLoading(false);
+    };
+    checkAuth();
   }, []);
 
-  // 2. HÀM ĐĂNG NHẬP GIẢ LẬP
+  // Đăng nhập
   const login = async (email, password) => {
-    // Không cần gọi API, giả vờ chờ 1 giây cho giống mạng thật
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Luôn luôn cho đăng nhập thành công
-    localStorage.setItem("spotify_token", "fake_token_boc_thep_123");
-    setUser({
-      user_id: 1,
-      email: email,
-      display_name: "ad",
-      role: "user",
-      plan: "premium",
-      avatar_url: null,
-    });
-    return true;
+    try {
+      const res = await authAPI.login({ email, password });
+      if (res.success) {
+        localStorage.setItem("spotify_token", res.data.token);
+        setUser(res.data.user);
+        return true;
+      }
+    } catch (error) {
+      if (error.code === "INVALID_CREDENTIALS") {
+        alert("Email hoặc mật khẩu không đúng");
+      } else if (error.code === "ACCOUNT_BLOCKED") {
+        alert("Tài khoản đã bị vô hiệu hóa");
+      } else {
+        alert(error.message || "Đăng nhập thất bại");
+      }
+    }
+    return false;
   };
 
-  // 3. HÀM ĐĂNG KÝ GIẢ LẬP
+  // Đăng ký
   const register = async (display_name, email, password) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    localStorage.setItem("spotify_token", "fake_token_boc_thep_123");
-    setUser({
-      user_id: 1,
-      email: email,
-      display_name: display_name,
-      role: "user",
-      plan: "free",
-      avatar_url: null,
-    });
-    return true;
+    try {
+      const res = await authAPI.register({ display_name, email, password });
+      if (res.success) {
+        localStorage.setItem("spotify_token", res.data.token);
+        setUser(res.data.user);
+        return true;
+      }
+    } catch (error) {
+      if (error.code === "EMAIL_EXISTS") {
+        alert("Email đã được sử dụng");
+      } else if (error.code === "INVALID_PASSWORD") {
+        alert("Mật khẩu tối thiểu 8 ký tự");
+      } else {
+        alert(error.message || "Đăng ký thất bại");
+      }
+    }
+    return false;
   };
 
-  // 4. HÀM ĐĂNG XUẤT
+  // Đăng xuất
   const logout = async () => {
-    localStorage.removeItem("spotify_token");
-    setUser(null);
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error("Logout API error:", error.message);
+    } finally {
+      localStorage.removeItem("spotify_token");
+      setUser(null);
+    }
   };
 
   return (

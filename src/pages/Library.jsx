@@ -13,7 +13,7 @@ const Library = () => {
   useEffect(() => {
     const fetchSongs = async () => {
       try {
-        const res = await songAPI.getSongs(); // GET /api/songs
+        const res = await songAPI.getSongs();
         if (res.success) setSongs(res.data);
       } catch (error) {
         console.error("Lỗi tải thư viện:", error);
@@ -69,7 +69,6 @@ const Library = () => {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-              {/* NÚT TIM ĐÃ ĐƯỢC NHÚT VÀO ĐÂY */}
               <LikeButton
                 songId={song.song_id || song.id}
                 initialIsLiked={song.is_liked}

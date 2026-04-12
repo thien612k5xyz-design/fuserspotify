@@ -33,7 +33,7 @@ const UserDashboard = () => {
   const [genreStats, setGenreStats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filter states (Mặc định lấy toàn bộ)
+  // Filter states
   const [period, setPeriod] = useState("all");
 
   const COLORS = ["#1db954", "#3b82f6", "#f59e0b", "#ec4899", "#8b5cf6"];
@@ -42,7 +42,6 @@ const UserDashboard = () => {
     const fetchAllData = async () => {
       try {
         setIsLoading(true);
-        // Gọi API theo đúng tên hàm bạn đã cung cấp
         const [statsRes, genresRes, topRes] = await Promise.all([
           userAPI.getStats(period, "", ""),
           userAPI.getGenreDistribution(period, "", ""),
@@ -51,7 +50,6 @@ const UserDashboard = () => {
 
         if (statsRes.success) setStats(statsRes.data);
         if (genresRes.success) {
-          // Khớp với cấu trúc trả về của API genre-distribution
           setGenreStats(genresRes.data.genre_distribution || genresRes.data);
         }
         if (topRes.success) setTopSongs(topRes.data);
@@ -63,12 +61,12 @@ const UserDashboard = () => {
     };
 
     fetchAllData();
-  }, [period]); // Load lại khi đổi period (all/month/year)
+  }, [period]);
 
   if (isLoading)
     return (
       <div style={{ padding: "50px", color: "white" }}>
-        Đang phân tích gu âm nhạc của bạn... 🎧
+        Phân tích gu âm nhạc của bạn...
       </div>
     );
 

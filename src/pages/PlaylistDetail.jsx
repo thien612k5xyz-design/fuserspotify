@@ -6,7 +6,7 @@ import { LikeButton } from "../components/LikeButton";
 import { Music, Play, Trash2 } from "lucide-react";
 
 const PlaylistDetail = () => {
-  const { id } = useParams(); // Lấy ID playlist từ đường dẫn
+  const { id } = useParams();
   const navigate = useNavigate();
   const playSong = usePlayerStore((state) => state.playSong);
 
@@ -27,13 +27,11 @@ const PlaylistDetail = () => {
     if (id) fetchDetail();
   }, [id]);
 
-  // Hàm xóa bài khỏi playlist
   const handleRemoveSong = async (songId, e) => {
     e.stopPropagation();
     if (!window.confirm("Xóa bài này khỏi playlist?")) return;
     try {
       await playlistAPI.removeSongFromPlaylist(id, songId);
-      // Xóa thành công thì lọc bài hát đó khỏi giao diện
       setPlaylist((prev) => ({
         ...prev,
         songs: prev.songs.filter((song) => song.song_id !== songId),
@@ -44,7 +42,6 @@ const PlaylistDetail = () => {
     }
   };
 
-  // Hàm xóa cả Playlist
   const handleDeletePlaylist = async () => {
     if (
       !window.confirm("Bạn có chắc chắn muốn xóa toàn bộ playlist này không?")
@@ -52,7 +49,7 @@ const PlaylistDetail = () => {
       return;
     try {
       await playlistAPI.deletePlaylist(id);
-      navigate("/my-playlists"); // Xóa xong đuổi về trang danh sách
+      navigate("/my-playlists");
     } catch (error) {
       alert("Lỗi khi xóa playlist");
     }
@@ -69,7 +66,7 @@ const PlaylistDetail = () => {
 
   return (
     <div style={{ padding: "30px", color: "white" }}>
-      {/* KHU VỰC HEADER PLAYLIST */}
+      {/*HEADER PLAYLIST */}
       <div
         style={{
           display: "flex",
@@ -134,7 +131,7 @@ const PlaylistDetail = () => {
         </div>
       </div>
 
-      {/* KHU VỰC NÚT ĐIỀU KHIỂN CHUNG */}
+      {/*NÚT ĐIỀU KHIỂN CHUNG */}
       <div
         style={{
           display: "flex",
@@ -145,7 +142,7 @@ const PlaylistDetail = () => {
       >
         {playlist.songs?.length > 0 && (
           <button
-            onClick={() => playSong(playlist.songs[0])} // Phát bài đầu tiên
+            onClick={() => playSong(playlist.songs[0])}
             style={{
               width: "56px",
               height: "56px",

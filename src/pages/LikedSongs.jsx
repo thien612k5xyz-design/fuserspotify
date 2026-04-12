@@ -12,7 +12,7 @@ const LikedSongs = () => {
   useEffect(() => {
     const fetchLikedSongs = async () => {
       try {
-        const res = await songAPI.getLikedSongs(); // GET /api/songs/liked
+        const res = await songAPI.getLikedSongs();
         if (res.success) setLikedSongs(res.data);
       } catch (error) {
         console.error("Lỗi tải bài hát đã thích:", error);
@@ -117,7 +117,6 @@ const LikedSongs = () => {
               <div
                 style={{ display: "flex", alignItems: "center", gap: "20px" }}
               >
-                {/* Nút Like ở đây sẽ giúp bạn "unlike" bài hát ngay tại chỗ */}
                 <LikeButton
                   songId={song.song_id}
                   initialIsLiked={true}
@@ -133,7 +132,7 @@ const LikedSongs = () => {
           <p
             style={{ textAlign: "center", marginTop: "50px", color: "#b3b3b3" }}
           >
-            Bạn chưa thả tim bài hát nào cả. Hãy khám phá thêm nhé!
+            Bạn chưa thích bài hát nào
           </p>
         )}
       </div>

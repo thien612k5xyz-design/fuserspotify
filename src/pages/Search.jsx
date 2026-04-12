@@ -149,7 +149,7 @@ const Search = () => {
       </div>
 
       {isLoading ? (
-        <h2>Đang tìm kiếm... ⏳</h2>
+        <h2>Đang tìm kiếm...</h2>
       ) : fullResults ? (
         <div className="full-results">
           {!fullResults.songs?.length && !fullResults.artists?.length ? (
@@ -215,7 +215,7 @@ const Search = () => {
                           </div>
                         </div>
 
-                        {/* NÚT THẢ TIM TRONG DÒNG KẾT QUẢ TÌM KIẾM */}
+                        {/* NÚT THẢ TIM*/}
                         <div
                           style={{
                             display: "flex",

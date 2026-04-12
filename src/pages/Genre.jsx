@@ -10,7 +10,6 @@ const Genre = () => {
   const [selectedGenre, setSelectedGenre] = useState(null);
   const [songs, setSongs] = useState([]);
 
-  // Tải danh sách thể loại từ API
   useEffect(() => {
     const fetchGenres = async () => {
       const res = await songAPI.getGenres();
@@ -19,7 +18,6 @@ const Genre = () => {
     fetchGenres();
   }, []);
 
-  // Tải bài hát khi chọn một thể loại
   const handleSelectGenre = async (genre) => {
     setSelectedGenre(genre);
     const res = await songAPI.getSongsByGenre(genre.genre_id);

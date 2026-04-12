@@ -27,10 +27,9 @@ export const CreatePlaylistModal = ({ isOpen, onClose }) => {
       });
 
       if (res.success) {
-        onClose(); // Đóng popup
-        setName(""); // Xóa form
+        onClose();
+        setName("");
         setDescription("");
-        // Chuyển thẳng sang trang của Playlist vừa tạo
         navigate(`/playlist/${res.data.playlist_id}`);
       }
     } catch (err) {

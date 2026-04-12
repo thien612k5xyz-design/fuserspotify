@@ -10,7 +10,6 @@ const MyPlaylists = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Load lại danh sách mỗi khi trang được mở hoặc Modal tạo xong đóng lại
   useEffect(() => {
     const fetchPlaylists = async () => {
       try {
@@ -23,7 +22,7 @@ const MyPlaylists = () => {
       }
     };
     if (!isModalOpen) fetchPlaylists();
-  }, [isModalOpen]); // Thêm isModalOpen vào dependency để tự động reload khi tạo mới
+  }, [isModalOpen]);
 
   if (isLoading)
     return (

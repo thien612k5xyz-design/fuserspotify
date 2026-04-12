@@ -31,7 +31,7 @@ const Register = () => {
         margin: "auto",
       }}
     >
-      <h2>Đăng Ký Spotify</h2>
+      <h2>Đăng Ký</h2>
       {errorMsg && <p style={{ color: "red" }}>{errorMsg}</p>}
 
       <form
@@ -73,7 +73,7 @@ const Register = () => {
             fontWeight: "bold",
           }}
         >
-          Đăng ký miễn phí
+          Đăng ký
         </button>
       </form>
       <p style={{ marginTop: "20px", textAlign: "center" }}>

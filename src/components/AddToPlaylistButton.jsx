@@ -6,10 +6,8 @@ export const AddToPlaylistButton = ({ songId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [playlists, setPlaylists] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Mở popup và tải danh sách playlist của User
   const handleOpenModal = async (e) => {
-    e.stopPropagation(); // Ngăn click lan ra ngoài làm phát nhạc
+    e.stopPropagation();
     setIsOpen(true);
     setIsLoading(true);
     try {
@@ -22,12 +20,11 @@ export const AddToPlaylistButton = ({ songId }) => {
     }
   };
 
-  // Chọn 1 playlist để nhét bài hát vào
   const handleAddToPlaylist = async (playlistId, e) => {
     e.stopPropagation();
     try {
       await playlistAPI.addSongToPlaylist(playlistId, songId);
-      alert("Đã thêm bài hát vào playlist!"); // Có thể thay bằng Toast báo thành công
+      alert("Đã thêm bài hát vào playlist!");
       setIsOpen(false);
     } catch (error) {
       alert(error.message || "Lỗi khi thêm vào playlist");

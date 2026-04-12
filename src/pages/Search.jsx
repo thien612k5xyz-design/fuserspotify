@@ -4,7 +4,7 @@ import { Search as SearchIcon } from "lucide-react";
 import { useDebounce } from "../hooks/useDebounce";
 import { searchAPI } from "../services/api";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { LikeButton } from "../components/LikeButton"; // Import Nút Tim
+import { LikeButton } from "../components/LikeButton";
 import "./Search.css";
 
 const Search = () => {

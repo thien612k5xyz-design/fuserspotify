@@ -19,7 +19,7 @@ const fetchWithAuth = async (endpoint, options = {}) => {
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.message || "Có lỗi xảy ra từ Server");
+    throw new Error(data.message || "Có lỗi xảy từ Server");
   }
   return data;
 };
@@ -47,7 +47,7 @@ export const authAPI = {
 };
 
 export const userAPI = {
-  // THÔNG TIN CÁ NHÂN 
+  // THÔNG TIN CÁ NHÂN
   getProfile: () => fetchWithAuth("/users/profile", { method: "GET" }),
 
   updateProfile: (data) =>
@@ -60,7 +60,7 @@ export const userAPI = {
     const token = localStorage.getItem("spotify_token");
     const formData = new FormData();
     formData.append("avatar", file);
-    const res = await fetch("http://localhost:5000/api/users/avatar", {
+    const res = await fetch(`${BASE_URL}/users/avatar`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
@@ -76,7 +76,7 @@ export const userAPI = {
       body: JSON.stringify(planData),
     }),
 
-  // THỐNG KÊ CHI TIẾT 
+  // THỐNG KÊ CHI TIẾT
   getStats: (period = "all", month = "", year = "") =>
     fetchWithAuth(`/user/stats?period=${period}&month=${month}&year=${year}`, {
       method: "GET",

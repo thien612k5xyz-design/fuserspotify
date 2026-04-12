@@ -142,7 +142,6 @@ export const MusicPlayer = () => {
           </p>
         </div>
 
-        {/* NÚT THẢ TIM & THÊM VÀO PLAYLIST */}
         <div
           style={{
             marginLeft: "10px",

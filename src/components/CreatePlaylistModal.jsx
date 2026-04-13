@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { playlistAPI } from "../services/api";
 import { X } from "lucide-react";
-import "./Createplaylistmodal.css";
+import "./CreatePlaylistModal.css";
 
 export const CreatePlaylistModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();

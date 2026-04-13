@@ -64,7 +64,7 @@ export const PlayerProvider = ({ children }) => {
         .catch((e) => console.error("Play error:", e));
     } else {
       audio.pause();
-      setIsPlaying(false); // ✅ cập nhật state khi pause
+      setIsPlaying(false);
     }
   };
 

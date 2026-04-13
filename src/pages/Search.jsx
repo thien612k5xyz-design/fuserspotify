@@ -1,16 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon } from "lucide-react";
 import { useDebounce } from "../hooks/useDebounce";
-import { searchAPI } from "../services/api";
+import { searchAPI, songAPI } from "../services/api";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";
 import "./Search.css";
 
 const Search = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const playSong = usePlayerStore((state) => state.playSong);
+  const playerContext = useContext(PlayerContext);
+
+  const storePlaySong =
+    typeof usePlayerStore === "function"
+      ? usePlayerStore((s) => s.playSong)
+      : null;
+
+  const playSong =
+    playerContext && playerContext.playSong
+      ? playerContext.playSong
+      : storePlaySong;
 
   const initialQuery = searchParams.get("q") || "";
   const [inputValue, setInputValue] = useState(initialQuery);
@@ -18,40 +29,86 @@ const Search = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [fullResults, setFullResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [error, setError] = useState("");
   const debouncedSearchTerm = useDebounce(inputValue, 300);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (debouncedSearchTerm.trim()) {
         try {
-          const res = await searchAPI.getSuggestions(debouncedSearchTerm);
-          if (res.success) {
-            setSuggestions(res.data);
+          const res = await searchAPI.searchAll(debouncedSearchTerm, 5);
+          if (res && res.success) {
+            const data = res.data || { songs: [], artists: [], albums: [] };
+
+            const songSug = (data.songs || []).map((s) => ({
+              type: "song",
+              id: s.song_id,
+              text: s.title,
+              sub: s.artist?.name,
+              payload: s,
+            }));
+
+            const albumSug = (data.albums || []).map((al) => ({
+              type: "album",
+              id: al.album_id,
+              text: al.title,
+              sub: al.artist?.name || al.artist_name,
+              payload: al,
+            }));
+
+            const artistSug = (data.artists || []).map((a) => ({
+              type: "artist",
+              id: a.artist_id,
+              text: a.name,
+              sub: "Nghệ sĩ",
+              payload: a,
+            }));
+
+            const combined = [...songSug, ...albumSug, ...artistSug].slice(
+              0,
+              8,
+            );
+
+            setSuggestions(combined);
             setShowSuggestions(true);
+          } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
           }
-        } catch (error) {
-          console.error("Lỗi lấy gợi ý:", error);
+        } catch (err) {
+          console.error("Lỗi lấy gợi ý:", err);
+          setSuggestions([]);
+          setShowSuggestions(false);
         }
       } else {
         setSuggestions([]);
         setShowSuggestions(false);
       }
     };
+
     if (debouncedSearchTerm !== searchParams.get("q")) fetchSuggestions();
   }, [debouncedSearchTerm, searchParams]);
 
   const fetchFullResults = async (keyword) => {
-    if (!keyword.trim()) return;
+    if (!keyword || !keyword.trim()) return;
     setIsLoading(true);
     setShowSuggestions(false);
+    setError("");
     setSearchParams({ q: keyword });
-
     try {
       const res = await searchAPI.searchAll(keyword, 5);
-      if (res.success) setFullResults(res.data);
-    } catch (error) {
-      console.error("Lỗi tìm kiếm:", error);
+      if (res && res.success) {
+        setFullResults(
+          res.data || { query: keyword, songs: [], artists: [], albums: [] },
+        );
+        console.log("Search full results:", res.data);
+      } else {
+        setFullResults({ query: keyword, songs: [], artists: [], albums: [] });
+      }
+    } catch (err) {
+      console.error("Lỗi tìm kiếm:", err);
+      setError("Có lỗi khi tìm kiếm. Vui lòng thử lại.");
+      setFullResults({ query: keyword, songs: [], artists: [], albums: [] });
     } finally {
       setIsLoading(false);
     }
@@ -66,12 +123,78 @@ const Search = () => {
     if (q) fetchFullResults(q);
   }, []);
 
-  const handleResultClick = (item, type) => {
+  const handleResultClick = async (item, type) => {
     setShowSuggestions(false);
-    if (type === "song") playSong(item);
-    else if (type === "artist")
-      navigate(`/artist/${item.artist_id || item.id}`);
-    else if (type === "album") navigate(`/album/${item.album_id || item.id}`);
+
+    if (type === "song") {
+      const looksLikeSong = item && (item.song_id || item.file_url || item.id);
+      if (looksLikeSong && item.file_url) {
+        if (typeof playSong === "function") playSong(item);
+        else console.warn("playSong is not available");
+        return;
+      }
+
+      const id = item.song_id || item.id;
+      if (id) {
+        try {
+          const res = await songAPI.getSong(id);
+          if (res && res.success && res.data) {
+            if (typeof playSong === "function") playSong(res.data);
+            else console.warn("playSong is not available");
+            return;
+          }
+        } catch (err) {
+          console.error("Lỗi lấy chi tiết bài hát:", err);
+        }
+      }
+
+      if (fullResults?.songs?.length) {
+        const found = fullResults.songs.find(
+          (s) =>
+            (item.song_id && s.song_id === item.song_id) ||
+            (item.text && s.title === item.text) ||
+            (item.title && s.title === item.title),
+        );
+        if (found) {
+          if (typeof playSong === "function") playSong(found);
+          else console.warn("playSong is not available");
+          return;
+        }
+      }
+
+      console.warn("Không tìm thấy dữ liệu bài hát để phát", item);
+      return;
+    }
+
+    if (type === "artist") {
+      const artistId = item.artist_id || item.id;
+      if (artistId) {
+        navigate(`/artist/${artistId}`);
+        return;
+      } else {
+        if (item.text || item.sub) {
+          await fetchFullResults(item.text || item.sub);
+          const first = fullResults?.artists?.[0];
+          if (first) navigate(`/artist/${first.artist_id || first.id}`);
+        }
+        return;
+      }
+    }
+
+    if (type === "album") {
+      const albumId = item.album_id || item.id;
+      if (albumId) {
+        navigate(`/albums/${albumId}`);
+        return;
+      } else {
+        if (item.text || item.title) {
+          await fetchFullResults(item.text || item.title);
+          const first = fullResults?.albums?.[0];
+          if (first) navigate(`/albums/${first.album_id || first.id}`);
+        }
+        return;
+      }
+    }
   };
 
   return (
@@ -127,7 +250,9 @@ const Search = () => {
             {suggestions.map((item, index) => (
               <div
                 key={index}
-                onClick={() => handleResultClick(item, item.type || "song")}
+                onClick={() =>
+                  handleResultClick(item.payload || item, item.type || "song")
+                }
                 style={{
                   padding: "12px 20px",
                   display: "flex",
@@ -137,10 +262,10 @@ const Search = () => {
                 }}
               >
                 <span style={{ fontSize: "15px", fontWeight: "bold" }}>
-                  {item.text || item.title}
+                  {item.text}
                 </span>
                 <span style={{ fontSize: "13px", color: "#b3b3b3" }}>
-                  {item.sub || item.artist?.name || item.type}
+                  {item.sub}
                 </span>
               </div>
             ))}
@@ -152,7 +277,9 @@ const Search = () => {
         <h2>Đang tìm kiếm...</h2>
       ) : fullResults ? (
         <div className="full-results">
-          {!fullResults.songs?.length && !fullResults.artists?.length ? (
+          {!fullResults.songs?.length &&
+          !fullResults.artists?.length &&
+          !fullResults.albums?.length ? (
             <h2>Không tìm thấy kết quả cho "{fullResults.query}"</h2>
           ) : (
             <>
@@ -170,7 +297,7 @@ const Search = () => {
                   >
                     {fullResults.songs.map((song) => (
                       <div
-                        key={song.song_id}
+                        key={song.song_id || song.id}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -215,7 +342,6 @@ const Search = () => {
                           </div>
                         </div>
 
-                        {/* NÚT THẢ TIM*/}
                         <div
                           style={{
                             display: "flex",
@@ -240,14 +366,16 @@ const Search = () => {
               )}
 
               {fullResults.artists && fullResults.artists.length > 0 && (
-                <section>
+                <section style={{ marginBottom: "40px" }}>
                   <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
                     Nghệ sĩ
                   </h2>
-                  <div style={{ display: "flex", gap: "20px" }}>
+                  <div
+                    style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}
+                  >
                     {fullResults.artists.map((artist) => (
                       <div
-                        key={artist.artist_id}
+                        key={artist.artist_id || artist.id}
                         onClick={() => handleResultClick(artist, "artist")}
                         style={{
                           padding: "20px",
@@ -284,13 +412,73 @@ const Search = () => {
                   </div>
                 </section>
               )}
+
+              {fullResults.albums && fullResults.albums.length > 0 && (
+                <section>
+                  <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
+                    Album
+                  </h2>
+                  <div
+                    style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}
+                  >
+                    {fullResults.albums.map((album) => (
+                      <div
+                        key={album.album_id || album.id}
+                        onClick={() => handleResultClick(album, "album")}
+                        style={{
+                          padding: "20px",
+                          background: "#181818",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          width: "150px",
+                        }}
+                      >
+                        <img
+                          src={album.cover_url}
+                          alt={album.title}
+                          style={{
+                            width: "100%",
+                            aspectRatio: "1/1",
+                            borderRadius: "8px",
+                            objectFit: "cover",
+                            marginBottom: "15px",
+                          }}
+                        />
+                        <h4
+                          style={{
+                            margin: 0,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {album.title}
+                        </h4>
+                        <p
+                          style={{
+                            margin: "5px 0 0 0",
+                            color: "#b3b3b3",
+                            fontSize: "13px",
+                          }}
+                        >
+                          {album.artist?.name || album.artist_name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
             </>
           )}
         </div>
       ) : (
         <div style={{ color: "#b3b3b3", marginTop: "50px" }}>
-          <h2>Tìm kiếm bài hát, nghệ sĩ hoặc podcast</h2>
+          <h2>Tìm kiếm bài hát, nghệ sĩ hoặc album</h2>
         </div>
+      )}
+
+      {error && (
+        <div style={{ color: "#e91429", marginTop: "16px" }}>{error}</div>
       )}
     </div>
   );

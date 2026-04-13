@@ -1,88 +1,152 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { songAPI } from "../services/api";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { LikeButton } from "../components/LikeButton";
-import { Play, Music } from "lucide-react";
+import { PlayerContext } from "../context/PlayerContext";
+import { Play, Heart } from "lucide-react";
 import "./Library.css";
 
 const Library = () => {
+  const { playSong } = useContext(PlayerContext);
+
   const [songs, setSongs] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const playSong = usePlayerStore((state) => state.playSong);
+  const [error, setError] = useState("");
+
+  const fetchLikedSongs = async (pageToFetch = 1) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const res = await songAPI.getLikedSongs({ page: pageToFetch, limit: 20 });
+      if (res && res.success) {
+        // res.data: array of songs
+        // res.pagination: may be undefined if API doesn't return it
+        setSongs(Array.isArray(res.data) ? res.data : []);
+        const pag = res.pagination || {
+          total: (res.data || []).length,
+          page: pageToFetch,
+          limit: 20,
+          totalPages: 1,
+        };
+        setPagination({
+          total: pag.total ?? (res.data ? res.data.length : 0),
+          page: pag.page ?? pageToFetch,
+          limit: pag.limit ?? 20,
+          totalPages: pag.totalPages ?? 1,
+        });
+      } else {
+        setSongs([]);
+        setPagination({
+          total: 0,
+          page: pageToFetch,
+          limit: 20,
+          totalPages: 1,
+        });
+      }
+    } catch (err) {
+      console.error("Lỗi tải thư viện:", err);
+      setError("Không thể tải thư viện. Vui lòng thử lại.");
+      setSongs([]);
+      setPagination({ total: 0, page: pageToFetch, limit: 20, totalPages: 1 });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSongs = async () => {
-      try {
-        const res = await songAPI.getSongs();
-        if (res.success) setSongs(res.data);
-      } catch (error) {
-        console.error("Lỗi tải thư viện:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchSongs();
-  }, []);
+    fetchLikedSongs(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
-  if (isLoading) return <div className="loading">Đang tải thư viện...</div>;
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    setPage(newPage);
+    window.scrollTo(0, 0);
+  };
+
+  if (isLoading)
+    return <div className="loading-state">Đang tải thư viện...</div>;
 
   return (
-    <div className="library-page" style={{ padding: "30px", color: "white" }}>
-      <h1 style={{ marginBottom: "30px" }}>Thư viện bài hát</h1>
+    <div className="library-container">
+      <div className="library-header">
+        <h1 className="library-title">Thư viện bài hát</h1>
+        <p className="library-subtitle">
+          {pagination.total || 0} bài hát đã thích
+        </p>
+      </div>
 
       <div className="song-list">
-        {songs.map((song, index) => (
-          <div
-            key={song.song_id || song.id}
-            className="song-item-row"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "10px",
-              borderRadius: "8px",
-              transition: "background 0.3s",
-            }}
-          >
-            <span style={{ width: "30px", color: "#b3b3b3" }}>{index + 1}</span>
-
+        {songs.length === 0 ? (
+          <p className="empty-text">Bạn chưa thích bài hát nào.</p>
+        ) : (
+          songs.map((song, index) => (
             <div
+              key={song.song_id}
+              className="song-table-row"
               onClick={() => playSong(song)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                flex: 1,
-                cursor: "pointer",
-                gap: "15px",
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") playSong(song);
               }}
             >
-              <img
-                src={song.cover_url}
-                alt=""
-                style={{ width: "40px", height: "40px", borderRadius: "4px" }}
-              />
-              <div>
-                <h4 style={{ margin: 0 }}>{song.title}</h4>
-                <p style={{ margin: 0, fontSize: "13px", color: "#b3b3b3" }}>
-                  {song.artist?.name || song.artist}
-                </p>
+              <div className="cell-index">
+                {index + 1 + (pagination.page - 1) * pagination.limit}
+              </div>
+
+              <div className="cell-info">
+                <img src={song.cover_url} alt={song.title} />
+                <div>
+                  <div className="cell-title">{song.title}</div>
+                  <div className="cell-artist">
+                    {song.artist?.name || "Unknown"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="cell-album">{song.album || "-"}</div>
+              <div className="cell-genre">{song.genre || "-"}</div>
+
+              <div className="cell-actions">
+                <Heart size={18} fill="#1ed760" color="#1ed760" />
+                <div className="cell-duration">
+                  {song.duration_formatted || "0:00"}
+                </div>
               </div>
             </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-              <LikeButton
-                songId={song.song_id || song.id}
-                initialIsLiked={song.is_liked}
-                initialLikeCount={song.like_count}
-              />
-              <span
-                style={{ color: "#b3b3b3", fontSize: "14px", width: "50px" }}
-              >
-                {song.duration_formatted}
-              </span>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
+
+      {pagination.totalPages > 1 && (
+        <div className="pagination">
+          <button
+            disabled={pagination.page === 1}
+            onClick={() => handlePageChange(pagination.page - 1)}
+          >
+            Trang trước
+          </button>
+
+          <span className="page-indicator">
+            {pagination.page} / {pagination.totalPages}
+          </span>
+
+          <button
+            disabled={pagination.page === pagination.totalPages}
+            onClick={() => handlePageChange(pagination.page + 1)}
+          >
+            Trang sau
+          </button>
+        </div>
+      )}
+
+      {error && <div className="error-text">{error}</div>}
     </div>
   );
 };

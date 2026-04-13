@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
+import { AuthProvider } from "./context/AuthContext";
 import { PlayerProvider } from "./context/PlayerContext";
 
 import { Sidebar } from "./components/Sidebar";
@@ -25,32 +26,35 @@ import "./App.css";
 
 function App() {
   return (
-    <PlayerProvider>
-      <Router>
-        <div className="app-container">
-          <Sidebar />
-          <main className="main-content">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/library" element={<Library />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/liked" element={<LikedSongs />} />
-              <Route path="/playlist/:id" element={<PlaylistDetail />} />
-              <Route path="/artist/:id" element={<Artist />} />
-              <Route path="/album/:id" element={<AlbumDetail />} />
-              <Route path="/genre/:id" element={<Genre />} />
-              <Route path="/my-playlists" element={<MyPlaylists />} />
-              <Route path="/queue" element={<Queue />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={<UserDashboard />} />
-            </Routes>
-          </main>
-          <MusicPlayer />
-        </div>
-      </Router>
-    </PlayerProvider>
+    <AuthProvider>
+      <PlayerProvider>
+        <Router>
+          <div className="app-container">
+            <Sidebar />
+            <main className="main-content">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/library" element={<Library />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/liked" element={<LikedSongs />} />
+                <Route path="/playlist/:id" element={<PlaylistDetail />} />
+                <Route path="/artist/:id" element={<Artist />} />
+                <Route path="/album/:id" element={<AlbumDetail />} />
+                <Route path="/albums/:id" element={<AlbumDetail />} />
+                <Route path="/genre/:id" element={<Genre />} />
+                <Route path="/my-playlists" element={<MyPlaylists />} />
+                <Route path="/queue" element={<Queue />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/dashboard" element={<UserDashboard />} />
+              </Routes>
+            </main>
+            <MusicPlayer />
+          </div>
+        </Router>
+      </PlayerProvider>
+    </AuthProvider>
   );
 }
 

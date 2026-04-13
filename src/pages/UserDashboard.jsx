@@ -9,6 +9,7 @@ import {
   Play,
   User as UserIcon,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import {
   LineChart,
@@ -101,6 +102,34 @@ const UserDashboard = () => {
           <p style={{ color: "#b3b3b3", margin: 0 }}>
             Nhìn lại hành trình âm nhạc của {user?.display_name}
           </p>
+
+          {/* PHẦN HIỂN THỊ LABEL TỪ BACKEND TRẢ VỀ */}
+          {stats?.label && (
+            <div
+              style={{
+                marginTop: "15px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "rgba(29, 185, 84, 0.1)",
+                padding: "10px 16px",
+                borderRadius: "50px",
+                width: "fit-content",
+                border: "1px solid rgba(29, 185, 84, 0.3)",
+              }}
+            >
+              <Sparkles size={16} color="#1db954" />
+              <span
+                style={{
+                  color: "#1db954",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                }}
+              >
+                {stats.label}
+              </span>
+            </div>
+          )}
         </div>
 
         <div

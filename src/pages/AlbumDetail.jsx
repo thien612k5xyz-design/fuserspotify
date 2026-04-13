@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { songAPI } from "../services/api";
+import { albumAPI } from "../services/api"; // <-- sửa ở đây
 import { Play, Heart, MoreHorizontal, Clock } from "lucide-react";
 import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
 import "./AlbumDetail.css";
@@ -15,11 +15,25 @@ const AlbumDetail = () => {
 
   useEffect(() => {
     const fetchAlbum = async () => {
+      setIsLoading(true);
       try {
-        const res = await songAPI.getAlbumById(id);
-        if (res.success) setAlbum(res.data);
+        const res = await albumAPI.getAlbumById(id); // <-- gọi albumAPI
+        if (res && res.success) {
+          // chuẩn hóa dữ liệu: nếu backend trả release_date, lấy năm
+          const data = res.data;
+          const release_year =
+            data.release_year ||
+            (data.release_date
+              ? new Date(data.release_date).getFullYear()
+              : undefined);
+          setAlbum({ ...data, release_year });
+        } else {
+          console.warn("Album API trả về không thành công:", res);
+          setAlbum(null);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Lỗi khi fetch album:", err);
+        setAlbum(null);
       } finally {
         setIsLoading(false);
       }
@@ -42,9 +56,8 @@ const AlbumDetail = () => {
           <div className="album-meta">
             <span className="album-artist-name">{album.artist?.name}</span>
             <span className="album-year-tracks">
-              {" "}
-              • {album.release_year} • {album.songs?.length} bài hát
-            </span>{" "}
+              • {album.release_year ?? "—"} • {album.songs?.length ?? 0} bài hát
+            </span>
           </div>
         </div>
       </div>
@@ -53,7 +66,9 @@ const AlbumDetail = () => {
         <div className="album-actions">
           <button
             className="btn-play-album"
-            onClick={() => album.songs?.length > 0 && playSong(album.songs[0])}
+            onClick={() =>
+              album.songs?.length > 0 && playSong && playSong(album.songs[0])
+            }
           >
             <Play size={28} fill="currentColor" />
           </button>
@@ -67,11 +82,12 @@ const AlbumDetail = () => {
               <div
                 key={song.song_id}
                 className="album-song-row"
-                onDoubleClick={() => playSong(song)}
+                onDoubleClick={() => playSong && playSong(song)}
               >
                 <div className="song-number">
                   {isThisPlaying ? "▶" : index + 1}
                 </div>
+
                 <div className="song-title-group">
                   <div
                     className={`song-title ${isThisPlaying ? "playing" : ""}`}
@@ -80,6 +96,7 @@ const AlbumDetail = () => {
                   </div>
                   <div className="song-artist">{album.artist?.name}</div>
                 </div>
+
                 <div className="song-actions">
                   <span>{song.duration_formatted}</span>
                   <button
@@ -94,6 +111,7 @@ const AlbumDetail = () => {
           })}
         </div>
       </div>
+
       <AddToPlaylistModal
         isOpen={!!selectedSong}
         onClose={() => setSelectedSong(null)}

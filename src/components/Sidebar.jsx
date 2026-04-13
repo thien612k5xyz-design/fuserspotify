@@ -16,21 +16,21 @@ import {
 import "./Sidebar.css";
 
 export const Sidebar = () => {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, loading } = useContext(AuthContext);
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+    } catch (err) {}
     navigate("/");
   };
 
   return (
     <div className="sidebar">
-      {/* LOGO */}
       <div className="sidebar-logo">Spotify</div>
 
-      {/* MENU CHÍNH */}
       <nav className="sidebar-nav">
         <NavLink
           to="/"
@@ -59,8 +59,8 @@ export const Sidebar = () => {
           <Library size={24} /> Thư viện
         </NavLink>
 
-        {/* Chỉ hiện khi đã đăng nhập */}
-        {user && (
+        {/* Các mục chỉ hiện khi đã đăng nhập */}
+        {!loading && user && (
           <>
             <NavLink
               to="/dashboard"
@@ -70,6 +70,7 @@ export const Sidebar = () => {
             >
               <BarChart3 size={24} /> Thống kê cá nhân
             </NavLink>
+
             <NavLink
               to="/profile"
               className={({ isActive }) =>
@@ -81,12 +82,38 @@ export const Sidebar = () => {
           </>
         )}
 
-        <div className="sidebar-divider"></div>
+        <div className="sidebar-divider" />
 
-        {/* NÚT TẠO PLAYLIST */}
-        <div className="nav-item" onClick={() => setIsModalOpen(true)}>
-          <PlusSquare size={24} /> Tạo Playlist
-        </div>
+        {/* Tạo Playlist: hiển thị khác nhau theo trạng thái */}
+        {loading ? (
+          <div
+            className="nav-item disabled"
+            aria-disabled="true"
+            title="Đang kiểm tra phiên..."
+          >
+            <PlusSquare size={24} /> Tạo Playlist
+          </div>
+        ) : user ? (
+          <div
+            className="nav-item"
+            onClick={() => setIsModalOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setIsModalOpen(true);
+            }}
+          >
+            <PlusSquare size={24} /> Tạo Playlist
+          </div>
+        ) : (
+          <Link
+            to="/login"
+            className="nav-item"
+            title="Đăng nhập để tạo playlist"
+          >
+            <PlusSquare size={24} /> Tạo Playlist
+          </Link>
+        )}
 
         <NavLink
           to="/liked"
@@ -107,11 +134,14 @@ export const Sidebar = () => {
         </NavLink>
       </nav>
 
-      <div className="sidebar-divider"></div>
+      <div className="sidebar-divider" />
 
-      {/* KHU VỰC TÀI KHOẢN */}
       <div className="sidebar-footer">
-        {user ? (
+        {loading ? (
+          <div className="user-info">
+            <p className="user-name">Đang kiểm tra phiên...</p>
+          </div>
+        ) : user ? (
           <div className="user-info">
             <p className="user-name">Chào, {user.display_name}</p>
             <button className="btn-logout" onClick={handleLogout}>
@@ -130,11 +160,13 @@ export const Sidebar = () => {
         )}
       </div>
 
-      {/* POPUP TẠO PLAYLIST */}
-      <CreatePlaylistModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      {/* Modal chỉ mount khi user đã đăng nhập */}
+      {user && (
+        <CreatePlaylistModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

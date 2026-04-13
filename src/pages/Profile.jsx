@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useRef } from "react";
-import { userAPI, authAPI } from "../services/api";
+import React, { useState, useEffect, useRef, useContext } from "react";
+import { userAPI, authAPI, BASE_URL } from "../services/api";
 import { Camera, Save, KeyRound } from "lucide-react";
+import { AuthContext } from "../context/AuthContext";
+import Avatar from "../components/Avatar";
 import "./Profile.css";
 
 const Profile = () => {
+  const { user, setUser } = useContext(AuthContext);
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
   const [passwords, setPasswords] = useState({
     old_password: "",
     new_password: "",
   });
-
   const [message, setMessage] = useState({ text: "", type: "" });
   const fileInputRef = useRef(null);
 
@@ -47,6 +48,7 @@ const Profile = () => {
       const res = await userAPI.updateProfile(updateData);
       if (res.success) {
         setProfile(res.data);
+        setUser({ ...user, display_name: res.data.display_name });
         showMessage("Cập nhật hồ sơ thành công!");
       }
     } catch (error) {
@@ -73,14 +75,16 @@ const Profile = () => {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     if (file.size > 5 * 1024 * 1024)
       return showMessage("File ảnh tối đa 5MB", "error");
-
     try {
       const res = await userAPI.uploadAvatar(file);
       if (res.success) {
-        setProfile({ ...profile, avatar_url: res.data.avatar_url });
+        const newUrl = res.avatar_url.startsWith("http")
+          ? res.avatar_url
+          : `${BASE_URL}${res.avatar_url}`;
+        setProfile({ ...profile, avatar_url: newUrl });
+        setUser({ ...user, avatar_url: newUrl });
         showMessage("Cập nhật ảnh đại diện thành công!");
       }
     } catch (error) {
@@ -95,27 +99,18 @@ const Profile = () => {
   return (
     <div className="profile-container">
       <h1 className="title">Hồ sơ của bạn</h1>
-
       {message.text && (
         <div className={`toast ${message.type}`}>{message.text}</div>
       )}
-
       <div className="profile-layout">
-        <div className="sidebar">
+        <div className="profile-sidebar">
           <div
             className="avatar-box"
             onClick={() => fileInputRef.current.click()}
           >
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" />
-            ) : (
-              <div className="avatar-placeholder">
-                <Camera size={50} />
-              </div>
-            )}
+            <Avatar url={profile.avatar_url} size={80} />
             <div className="avatar-overlay">Đổi ảnh</div>
           </div>
-
           <input
             type="file"
             ref={fileInputRef}
@@ -123,11 +118,9 @@ const Profile = () => {
             accept="image/png, image/jpeg"
             hidden
           />
-
           <div className="card">
             <p className="label">Email đăng nhập</p>
             <p className="email">{profile.email}</p>
-
             <div
               className={`plan ${profile.plan === "premium" ? "premium" : ""}`}
             >
@@ -135,12 +128,9 @@ const Profile = () => {
             </div>
           </div>
         </div>
-
         <div className="main">
-          {/* PROFILE FORM */}
           <form className="card" onSubmit={handleUpdateProfile}>
             <h2>Chỉnh sửa hồ sơ</h2>
-
             <div className="grid">
               <input
                 type="text"
@@ -150,7 +140,6 @@ const Profile = () => {
                 }
                 placeholder="Tên hiển thị"
               />
-
               <input
                 type="text"
                 value={profile.country || ""}
@@ -159,7 +148,6 @@ const Profile = () => {
                 }
                 placeholder="Quốc gia"
               />
-
               <textarea
                 value={profile.bio || ""}
                 onChange={(e) =>
@@ -167,7 +155,6 @@ const Profile = () => {
                 }
                 placeholder="Bio"
               />
-
               <input
                 type="date"
                 value={
@@ -179,7 +166,6 @@ const Profile = () => {
                   setProfile({ ...profile, date_of_birth: e.target.value })
                 }
               />
-
               <select
                 value={profile.gender || ""}
                 onChange={(e) =>
@@ -192,42 +178,30 @@ const Profile = () => {
                 <option value="other">Khác</option>
               </select>
             </div>
-
             <button className="btn primary">
               <Save size={18} /> Lưu
             </button>
           </form>
-
-          {/* PASSWORD */}
           <form className="card" onSubmit={handleChangePassword}>
             <h2>Đổi mật khẩu</h2>
-
             <div className="grid">
               <input
                 type="password"
                 value={passwords.old_password}
                 onChange={(e) =>
-                  setPasswords({
-                    ...passwords,
-                    old_password: e.target.value,
-                  })
+                  setPasswords({ ...passwords, old_password: e.target.value })
                 }
                 placeholder="Mật khẩu hiện tại"
               />
-
               <input
                 type="password"
                 value={passwords.new_password}
                 onChange={(e) =>
-                  setPasswords({
-                    ...passwords,
-                    new_password: e.target.value,
-                  })
+                  setPasswords({ ...passwords, new_password: e.target.value })
                 }
                 placeholder="Mật khẩu mới"
               />
             </div>
-
             <button className="btn outline">
               <KeyRound size={18} /> Đổi mật khẩu
             </button>

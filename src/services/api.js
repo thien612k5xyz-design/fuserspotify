@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:5000/api";
+export const BASE_URL = "http://localhost:5000/api";
 
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = localStorage.getItem("spotify_token");
@@ -25,7 +25,6 @@ const fetchWithAuth = async (endpoint, options = {}) => {
 };
 
 // XÁC THỰC , USER PROFILE
-
 export const authAPI = {
   login: (credentials) =>
     fetchWithAuth("/auth/login", {
@@ -95,7 +94,6 @@ export const userAPI = {
 };
 
 // BÀI HÁT
-
 export const songAPI = {
   // Lấy danh sách bài hát
   getSongs: (queryString = "") =>
@@ -103,6 +101,9 @@ export const songAPI = {
 
   // Lấy chi tiết bài hát
   getSongById: (id) => fetchWithAuth(`/songs/${id}`, { method: "GET" }),
+
+  // NEW: Lấy dữ liệu Home/Discovery từ backend
+  getHome: () => fetchWithAuth(`/home`, { method: "GET" }),
 
   // Ghi nhận lịch sử nghe nhạc
   recordPlay: (id, playData) =>
@@ -125,7 +126,6 @@ export const songAPI = {
 };
 
 // NGHỆ SĨ, ALBUM , THỂ LOẠI
-
 export const artistAPI = {
   getArtists: (queryString = "") =>
     fetchWithAuth(`/artists${queryString}`, { method: "GET" }),
@@ -149,7 +149,6 @@ export const genreAPI = {
 };
 
 // PLAYLISTS
-
 export const playlistAPI = {
   getMyPlaylists: () => fetchWithAuth("/playlists", { method: "GET" }),
   createPlaylist: (data) =>
@@ -175,7 +174,6 @@ export const playlistAPI = {
 };
 
 // SEARCH
-
 export const searchAPI = {
   searchAll: (keyword, limit = 5) =>
     fetchWithAuth(`/search?q=${keyword}&limit=${limit}`, { method: "GET" }),

@@ -15,10 +15,8 @@ const GenreDetail = () => {
   useEffect(() => {
     const fetchSongs = async () => {
       try {
-        // Gọi API lấy bài hát theo thể loại
         const res = await genreAPI.getGenreSongs(id);
         if (res.success) {
-          // data có thể chứa mảng danh sách bài hát
           setSongs(res.data?.data || res.data || []);
         }
       } catch (error) {
@@ -30,13 +28,11 @@ const GenreDetail = () => {
     fetchSongs();
   }, [id]);
 
-  // Hàm mồi để play nhạc nếu nó là bài tóm tắt
   const handlePlay = async (song) => {
     if (song.file_url) {
       playSong(song);
       return;
     }
-    // Nếu thiếu file_url, lấy chi tiết
     try {
       const res = await songAPI.getSongById(song.song_id);
       if (res.success) playSong(res.data);

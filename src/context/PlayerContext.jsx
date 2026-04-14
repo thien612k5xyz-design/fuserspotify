@@ -12,59 +12,63 @@ export const PlayerProvider = ({ children }) => {
   const [volume, setVolume] = useState(1);
   const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
-
   const playedSecondsRef = useRef(0);
   const lastAudioTimeRef = useRef(0);
 
   const loadAndPlay = async (song, index = -1) => {
     if (!song) return;
-
-    let fullSong = song;
-
+    let fullSong = { ...song };
     if (!fullSong.file_url) {
       try {
+        console.log("Đang lấy chi tiết bài hát...");
         const res = await songAPI.getSongById(fullSong.song_id || fullSong.id);
-        if (res.success && res.data) {
+        if (res?.success && res.data) {
           fullSong = res.data;
         } else {
-          console.error("Không tìm thấy link nhạc!");
+          console.error("Không lấy được file_url");
           return;
         }
       } catch (err) {
-        console.error("Lỗi lấy chi tiết nhạc:", err);
+        console.error("Lỗi lấy chi tiết bài hát:", err);
         return;
       }
     }
 
     playedSecondsRef.current = 0;
     lastAudioTimeRef.current = 0;
+
     setCurrentSong(fullSong);
     if (index >= 0) setCurrentIndex(index);
 
     const audio = audioRef.current;
     audio.pause();
 
-    audio.src = fullSong.file_url || fullSong.audioUrl || "";
-    audio.currentTime = 0;
-    audio.volume = volume;
+    if (fullSong.file_url) {
+      audio.src = fullSong.file_url;
+      audio.currentTime = 0;
+      audio.volume = volume;
 
-    audio
-      .play()
-      .then(() => {
+      try {
+        await audio.play();
         setIsPlaying(true);
-        lastAudioTimeRef.current = audio.currentTime || 0;
-      })
-      .catch((err) => console.error("Play error:", err));
+        console.log("▶ Tự động phát:", fullSong.title);
+      } catch (err) {
+        console.error("Browser chặn auto-play:", err);
+        setIsPlaying(false);
+      }
+    } else {
+      console.error("Không có file_url để phát nhạc");
+    }
   };
 
   const playSong = (song) => {
-    if (
-      currentSong &&
-      (currentSong.song_id || currentSong.id) === (song.song_id || song.id)
-    ) {
-      const audio = audioRef.current;
-      audio.play().catch((e) => console.error("Play error:", e));
-      setIsPlaying(true);
+    if (!song) return;
+
+    const songId = song.song_id || song.id;
+    const currentId = currentSong?.song_id || currentSong?.id;
+
+    if (currentId && currentId === songId) {
+      togglePlayPause();
       return;
     }
 
@@ -84,7 +88,7 @@ export const PlayerProvider = ({ children }) => {
       audio
         .play()
         .then(() => setIsPlaying(true))
-        .catch((e) => console.error("Play error:", e));
+        .catch(console.error);
     } else {
       audio.pause();
       setIsPlaying(false);
@@ -93,33 +97,37 @@ export const PlayerProvider = ({ children }) => {
 
   const playNext = () => {
     if (queue.length === 0) return;
+
     let nextIndex = currentIndex + 1;
     if (isShuffle) nextIndex = Math.floor(Math.random() * queue.length);
 
     if (nextIndex >= queue.length) {
       if (isRepeat) nextIndex = 0;
       else {
-        audioRef.current.pause();
         setIsPlaying(false);
         return;
       }
     }
+
     loadAndPlay(queue[nextIndex], nextIndex);
   };
 
   const playPrev = () => {
     if (queue.length === 0) return;
-    let prevIndex = currentIndex - 1;
 
+    let prevIndex = currentIndex - 1;
     if (prevIndex < 0) {
       if (isRepeat) prevIndex = queue.length - 1;
       else return;
     }
+
     loadAndPlay(queue[prevIndex], prevIndex);
   };
 
   useEffect(() => {
     const audio = audioRef.current;
+    if (!audio) return;
+
     const onEnded = () => playNext();
     const onTimeUpdate = () => {
       const t = audio.currentTime || 0;
@@ -146,6 +154,7 @@ export const PlayerProvider = ({ children }) => {
       if (!currentSong) return;
       const durationPlayed = Math.floor(playedSecondsRef.current || 0);
       if (durationPlayed < 5) return;
+
       try {
         const url = `${BASE_URL}/songs/${currentSong.song_id || currentSong.id}/play`;
         const payload = JSON.stringify({
@@ -153,8 +162,9 @@ export const PlayerProvider = ({ children }) => {
           source: "web",
         });
         navigator.sendBeacon(url, payload);
-      } catch {}
+      } catch (e) {}
     };
+
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [currentSong]);
@@ -170,16 +180,16 @@ export const PlayerProvider = ({ children }) => {
         volume,
         setVolume,
         isShuffle,
-        toggleShuffle: () => setIsShuffle((s) => !s),
+        toggleShuffle: () => setIsShuffle((prev) => !prev),
         isRepeat,
-        toggleRepeat: () => setIsRepeat((r) => !r),
+        toggleRepeat: () => setIsRepeat((prev) => !prev),
         playSong,
         togglePlayPause,
         playNext,
         playPrev,
-        setQueueAndPlay: (songs, i = 0) => {
+        setQueueAndPlay: (songs, startIndex = 0) => {
           setQueue(songs);
-          loadAndPlay(songs[i], i);
+          loadAndPlay(songs[startIndex], startIndex);
         },
       }}
     >

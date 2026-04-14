@@ -131,17 +131,15 @@
   background: white;
   border-radius: 50%;
   cursor: pointer;
-  margin-top: -5px; /* căn giữa thumb với track */
+  margin-top: -5px;
 }
 
-/* Track cho Webkit */
 .volume-slider::-webkit-slider-runnable-track {
   height: 4px;
   background: #4b5563;
   border-radius: 2px;
 }
 
-/* Thumb cho Firefox */
 .volume-slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
@@ -150,7 +148,6 @@
   cursor: pointer;
 }
 
-/* Track cho Firefox */
 .volume-slider::-moz-range-track {
   height: 4px;
   background: #4b5563;

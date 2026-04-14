@@ -16,7 +16,7 @@ import { AddToPlaylistButton } from "./AddToPlaylistButton";
 import "./MusicPlayer.css";
 
 const formatTime = (time) => {
-  if (isNaN(time) || time === Infinity) return "0:00";
+  if (isNaN(time) || time === Infinity || !time) return "0:00";
   const minutes = Math.floor(time / 60);
   const seconds = Math.floor(time % 60);
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
@@ -42,18 +42,12 @@ export const MusicPlayer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Đồng bộ volume với thẻ audio
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume, audioRef]);
-
-  // Lắng nghe sự kiện audio
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onLoadedMetadata = () => setDuration(audio.duration);
+    const onLoadedMetadata = () => setDuration(audio.duration || 0);
     const onEnded = () => playNext();
 
     audio.addEventListener("timeupdate", onTimeUpdate);
@@ -65,28 +59,26 @@ export const MusicPlayer = () => {
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
       audio.removeEventListener("ended", onEnded);
     };
-  }, [audioRef, currentSong, playNext]);
+  }, [audioRef, playNext]);
 
   const handleSeek = (e) => {
     const seekTime = Number(e.target.value);
     if (audioRef.current) {
       audioRef.current.currentTime = seekTime;
       setCurrentTime(seekTime);
-      if (isPlaying) audioRef.current.play(); // tiếp tục chạy sau khi tua
     }
   };
 
   const handleVolumeChange = (e) => {
     const v = Number(e.target.value) / 100;
     setVolume(v);
-    if (audioRef.current) audioRef.current.volume = v;
   };
 
   if (!currentSong) return null;
 
   return (
     <div className="music-player">
-      {/* TRÁI: Thông tin bài hát */}
+      {/* Thông tin bài hát */}
       <div className="player-left">
         <img
           src={currentSong.cover_url || currentSong.coverUrl}
@@ -111,7 +103,7 @@ export const MusicPlayer = () => {
               )
             }
           >
-            {currentSong.artist?.name || currentSong.artist}
+            {currentSong.artist?.name || currentSong.artist || "Unknown"}
           </p>
         </div>
         <div className="player-actions">
@@ -123,7 +115,7 @@ export const MusicPlayer = () => {
         </div>
       </div>
 
-      {/* GIỮA: Điều khiển nhạc */}
+      {/* Điều khiển nhạc */}
       <div className="player-center">
         <div className="control-buttons">
           <button
@@ -169,7 +161,7 @@ export const MusicPlayer = () => {
         </div>
       </div>
 
-      {/* PHẢI: Âm lượng và công cụ */}
+      {/* Âm lượng */}
       <div className="player-right">
         <button className="btn-icon" onClick={() => navigate("/queue")}>
           <ListMusic size={20} />

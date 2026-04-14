@@ -59,7 +59,7 @@ export const Sidebar = () => {
           <Library size={24} /> Thư viện
         </NavLink>
 
-        {/* Các mục chỉ hiện khi đã đăng nhập */}
+        {/* chỉ hiện khi đã đăng nhập */}
         {!loading && user && (
           <>
             <NavLink
@@ -84,7 +84,7 @@ export const Sidebar = () => {
 
         <div className="sidebar-divider" />
 
-        {/* Tạo Playlist: hiển thị khác nhau theo trạng thái */}
+        {/* Tạo Playlist */}
         {loading ? (
           <div
             className="nav-item disabled"
@@ -160,7 +160,7 @@ export const Sidebar = () => {
         )}
       </div>
 
-      {/* Modal chỉ mount khi user đã đăng nhập */}
+      {/* Modal chỉ mount khi đã đăng nhập */}
       {user && (
         <CreatePlaylistModal
           isOpen={isModalOpen}

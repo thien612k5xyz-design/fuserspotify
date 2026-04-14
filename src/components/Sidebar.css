@@ -155,7 +155,6 @@
   border-radius: 6px;
 }
 
-/* Small screens: make sidebar collapsible-friendly */
 @media (max-width: 900px) {
   .sidebar {
     width: 200px;

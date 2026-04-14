@@ -82,10 +82,6 @@ export const userAPI = {
       `/user/genre-distribution?period=${period}&month=${month}&year=${year}`,
       { method: "GET" },
     ),
-  getTopTracks: (limit = 5) =>
-    fetchWithAuth(`/user/top-tracks?limit=${limit}`, {
-      method: "GET",
-    }),
 };
 
 export const songAPI = {

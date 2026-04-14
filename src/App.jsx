@@ -17,7 +17,7 @@ import Artist from "./pages/Artist";
 import AlbumDetail from "./pages/AlbumDetail";
 import MyPlaylists from "./pages/MyPlaylists";
 import Queue from "./pages/Queue";
-import Genre from "./pages/Genre";
+import GenreDetail from "./pages/GenreDetail";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UserDashboard from "./pages/UserDashboard";
@@ -42,12 +42,12 @@ function App() {
                 <Route path="/artist/:id" element={<Artist />} />
                 <Route path="/album/:id" element={<AlbumDetail />} />
                 <Route path="/albums/:id" element={<AlbumDetail />} />
-                <Route path="/genre/:id" element={<Genre />} />
                 <Route path="/my-playlists" element={<MyPlaylists />} />
                 <Route path="/queue" element={<Queue />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/dashboard" element={<UserDashboard />} />
+                <Route path="/genre/:id" element={<GenreDetail />} />
               </Routes>
             </main>
             <MusicPlayer />

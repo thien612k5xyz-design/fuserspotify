@@ -16,18 +16,38 @@ export const PlayerProvider = ({ children }) => {
   const playedSecondsRef = useRef(0);
   const lastAudioTimeRef = useRef(0);
 
-  const loadAndPlay = (song, index = -1) => {
+  const loadAndPlay = async (song, index = -1) => {
     if (!song) return;
+
+    let fullSong = song;
+
+    if (!fullSong.file_url) {
+      try {
+        const res = await songAPI.getSongById(fullSong.song_id || fullSong.id);
+        if (res.success && res.data) {
+          fullSong = res.data;
+        } else {
+          console.error("Không tìm thấy link nhạc!");
+          return;
+        }
+      } catch (err) {
+        console.error("Lỗi lấy chi tiết nhạc:", err);
+        return;
+      }
+    }
+
     playedSecondsRef.current = 0;
     lastAudioTimeRef.current = 0;
-    setCurrentSong(song);
+    setCurrentSong(fullSong);
     if (index >= 0) setCurrentIndex(index);
 
     const audio = audioRef.current;
     audio.pause();
-    audio.src = song.file_url || song.audioUrl || "";
+
+    audio.src = fullSong.file_url || fullSong.audioUrl || "";
     audio.currentTime = 0;
     audio.volume = volume;
+
     audio
       .play()
       .then(() => {
@@ -47,16 +67,19 @@ export const PlayerProvider = ({ children }) => {
       setIsPlaying(true);
       return;
     }
+
     if (queue.length === 0) {
       setQueue([song]);
       setCurrentIndex(0);
     }
+
     loadAndPlay(song);
   };
 
   const togglePlayPause = () => {
     const audio = audioRef.current;
     if (!audio.src) return;
+
     if (audio.paused) {
       audio
         .play()
@@ -72,6 +95,7 @@ export const PlayerProvider = ({ children }) => {
     if (queue.length === 0) return;
     let nextIndex = currentIndex + 1;
     if (isShuffle) nextIndex = Math.floor(Math.random() * queue.length);
+
     if (nextIndex >= queue.length) {
       if (isRepeat) nextIndex = 0;
       else {
@@ -86,6 +110,7 @@ export const PlayerProvider = ({ children }) => {
   const playPrev = () => {
     if (queue.length === 0) return;
     let prevIndex = currentIndex - 1;
+
     if (prevIndex < 0) {
       if (isRepeat) prevIndex = queue.length - 1;
       else return;
@@ -102,8 +127,10 @@ export const PlayerProvider = ({ children }) => {
       if (delta > 0 && delta < 10) playedSecondsRef.current += delta;
       lastAudioTimeRef.current = t;
     };
+
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("timeupdate", onTimeUpdate);
+
     return () => {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("timeupdate", onTimeUpdate);

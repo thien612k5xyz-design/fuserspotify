@@ -1,7 +1,7 @@
 export const BASE_URL = "http://localhost:5000/api";
 
 const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = localStorage.getItem("spotify_token");
+  const token = localStorage.getItem("token");
 
   const headers = {
     "Content-Type": "application/json",
@@ -21,10 +21,10 @@ const fetchWithAuth = async (endpoint, options = {}) => {
   if (!response.ok) {
     throw new Error(data.message || "Có lỗi xảy từ Server");
   }
+
   return data;
 };
 
-// XÁC THỰC , USER PROFILE
 export const authAPI = {
   login: (credentials) =>
     fetchWithAuth("/auth/login", {
@@ -46,86 +46,74 @@ export const authAPI = {
 };
 
 export const userAPI = {
-  // THÔNG TIN CÁ NHÂN
   getProfile: () => fetchWithAuth("/users/profile", { method: "GET" }),
-
   updateProfile: (data) =>
     fetchWithAuth("/users/profile", {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-
   uploadAvatar: async (file) => {
-    const token = localStorage.getItem("spotify_token");
+    const token = localStorage.getItem("token");
     const formData = new FormData();
     formData.append("avatar", file);
+
     const res = await fetch(`${BASE_URL}/users/avatar`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Lỗi upload ảnh");
     return data;
   },
-
   upgradePremium: (planData) =>
     fetchWithAuth("/users/upgrade", {
       method: "POST",
       body: JSON.stringify(planData),
     }),
 
-  // THỐNG KÊ CHI TIẾT
   getStats: (period = "all", month = "", year = "") =>
     fetchWithAuth(`/user/stats?period=${period}&month=${month}&year=${year}`, {
       method: "GET",
     }),
-
   getGenreDistribution: (period = "all", month = "", year = "") =>
     fetchWithAuth(
       `/user/genre-distribution?period=${period}&month=${month}&year=${year}`,
       { method: "GET" },
     ),
-
   getTopTracks: (limit = 5) =>
     fetchWithAuth(`/user/top-tracks?limit=${limit}`, {
       method: "GET",
     }),
 };
 
-// BÀI HÁT
 export const songAPI = {
-  // Lấy danh sách bài hát
-  getSongs: (queryString = "") =>
-    fetchWithAuth(`/songs${queryString}`, { method: "GET" }),
+  getSongs: ({ page = 1, limit = 20 } = {}) =>
+    fetchWithAuth(`/songs?page=${page}&limit=${limit}`, {
+      method: "GET",
+    }),
 
-  // Lấy chi tiết bài hát
   getSongById: (id) => fetchWithAuth(`/songs/${id}`, { method: "GET" }),
 
-  // NEW: Lấy dữ liệu Home/Discovery từ backend
   getHome: () => fetchWithAuth(`/home`, { method: "GET" }),
 
-  // Ghi nhận lịch sử nghe nhạc
   recordPlay: (id, playData) =>
     fetchWithAuth(`/songs/${id}/play`, {
       method: "POST",
       body: JSON.stringify(playData),
     }),
 
-  // Thích/Bỏ thích bài hát
   toggleLike: (id) => fetchWithAuth(`/songs/${id}/like`, { method: "POST" }),
 
-  // Lấy danh sách bài đã thích
   getLikedSongs: (page = 1, limit = 20) =>
     fetchWithAuth(`/songs/liked?page=${page}&limit=${limit}`, {
       method: "GET",
     }),
 
-  // Lấy danh sách bài vừa nghe
   getRecentSongs: () => fetchWithAuth("/songs/recent", { method: "GET" }),
 };
 
-// NGHỆ SĨ, ALBUM , THỂ LOẠI
 export const artistAPI = {
   getArtists: (queryString = "") =>
     fetchWithAuth(`/artists${queryString}`, { method: "GET" }),
@@ -148,11 +136,13 @@ export const genreAPI = {
     fetchWithAuth(`/genres/${id}/songs${queryString}`, { method: "GET" }),
 };
 
-// PLAYLISTS
 export const playlistAPI = {
   getMyPlaylists: () => fetchWithAuth("/playlists", { method: "GET" }),
   createPlaylist: (data) =>
-    fetchWithAuth("/playlists", { method: "POST", body: JSON.stringify(data) }),
+    fetchWithAuth("/playlists", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   getPlaylistById: (id) => fetchWithAuth(`/playlists/${id}`, { method: "GET" }),
   updatePlaylist: (id, data) =>
     fetchWithAuth(`/playlists/${id}`, {
@@ -161,7 +151,6 @@ export const playlistAPI = {
     }),
   deletePlaylist: (id) =>
     fetchWithAuth(`/playlists/${id}`, { method: "DELETE" }),
-
   addSongToPlaylist: (playlistId, songId) =>
     fetchWithAuth(`/playlists/${playlistId}/songs`, {
       method: "POST",
@@ -173,10 +162,13 @@ export const playlistAPI = {
     }),
 };
 
-// SEARCH
 export const searchAPI = {
   searchAll: (keyword, limit = 5) =>
-    fetchWithAuth(`/search?q=${keyword}&limit=${limit}`, { method: "GET" }),
+    fetchWithAuth(`/search?q=${keyword}&limit=${limit}`, {
+      method: "GET",
+    }),
   getSuggestions: (keyword) =>
-    fetchWithAuth(`/search/suggestions?q=${keyword}`, { method: "GET" }),
+    fetchWithAuth(`/search/suggestions?q=${keyword}`, {
+      method: "GET",
+    }),
 };

@@ -2,11 +2,26 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon } from "lucide-react";
 import { useDebounce } from "../hooks/useDebounce";
-import { searchAPI, songAPI } from "../services/api";
+import { searchAPI, songAPI, genreAPI } from "../services/api"; 
 import { usePlayerStore } from "../store/usePlayerStore";
 import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";
 import "./Search.css";
+
+const GENRE_COLORS = [
+  "#E13300",
+  "#1E3264",
+  "#E8115B",
+  "#148A08",
+  "#E91429",
+  "#8D67AB",
+  "#7358FF",
+  "#D84000",
+  "#006450",
+  "#8400E7",
+  "#AF2896",
+  "#1E3264",
+];
 
 const Search = () => {
   const navigate = useNavigate();
@@ -30,7 +45,23 @@ const Search = () => {
   const [fullResults, setFullResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [genres, setGenres] = useState([]);
   const debouncedSearchTerm = useDebounce(inputValue, 300);
+
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const res = await genreAPI.getGenres();
+        if (res && res.success) {
+          setGenres(res.data);
+        }
+      } catch (err) {
+        console.error("Lỗi lấy danh sách thể loại:", err);
+      }
+    };
+    fetchGenres();
+  }, []);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -68,7 +99,6 @@ const Search = () => {
               0,
               8,
             );
-
             setSuggestions(combined);
             setShowSuggestions(true);
           } else {
@@ -95,13 +125,13 @@ const Search = () => {
     setShowSuggestions(false);
     setError("");
     setSearchParams({ q: keyword });
+
     try {
       const res = await searchAPI.searchAll(keyword, 5);
       if (res && res.success) {
         setFullResults(
           res.data || { query: keyword, songs: [], artists: [], albums: [] },
         );
-        console.log("Search full results:", res.data);
       } else {
         setFullResults({ query: keyword, songs: [], artists: [], albums: [] });
       }
@@ -137,7 +167,7 @@ const Search = () => {
       const id = item.song_id || item.id;
       if (id) {
         try {
-          const res = await songAPI.getSong(id);
+          const res = await songAPI.getSongById(id);
           if (res && res.success && res.data) {
             if (typeof playSong === "function") playSong(res.data);
             else console.warn("playSong is not available");
@@ -161,8 +191,6 @@ const Search = () => {
           return;
         }
       }
-
-      console.warn("Không tìm thấy dữ liệu bài hát để phát", item);
       return;
     }
 
@@ -199,6 +227,7 @@ const Search = () => {
 
   return (
     <div className="search-page" style={{ padding: "30px", color: "white" }}>
+      {/* KHUNG TÌM KIẾM */}
       <div
         className="search-bar-container"
         style={{
@@ -232,6 +261,7 @@ const Search = () => {
           />
         </div>
 
+        {/* DROPDOWN GỢI Ý */}
         {showSuggestions && suggestions.length > 0 && (
           <div
             className="suggestions-dropdown"
@@ -273,6 +303,50 @@ const Search = () => {
         )}
       </div>
 
+      {!inputValue.trim() && !isLoading && !fullResults && (
+        <section>
+          <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
+            Tìm theo thể loại
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: "20px",
+            }}
+          >
+            {genres.map((genre, index) => (
+              <div
+                key={genre.genre_id}
+                onClick={() => navigate(`/genre/${genre.genre_id}`)}
+                style={{
+                  background: GENRE_COLORS[index % GENRE_COLORS.length],
+                  height: "180px",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  cursor: "pointer",
+                  position: "relative",
+                  overflow: "hidden",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "22px",
+                    fontWeight: "bold",
+                    wordWrap: "break-word",
+                  }}
+                >
+                  {genre.name}
+                </h3>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* KẾT QUẢ TÌM KIẾM */}
       {isLoading ? (
         <h2>Đang tìm kiếm...</h2>
       ) : fullResults ? (
@@ -283,6 +357,7 @@ const Search = () => {
             <h2>Không tìm thấy kết quả cho "{fullResults.query}"</h2>
           ) : (
             <>
+              {/* BÀI HÁT */}
               {fullResults.songs && fullResults.songs.length > 0 && (
                 <section style={{ marginBottom: "40px" }}>
                   <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
@@ -365,6 +440,7 @@ const Search = () => {
                 </section>
               )}
 
+              {/* NGHỆ SĨ */}
               {fullResults.artists && fullResults.artists.length > 0 && (
                 <section style={{ marginBottom: "40px" }}>
                   <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
@@ -413,6 +489,7 @@ const Search = () => {
                 </section>
               )}
 
+              {/* ALBUM */}
               {fullResults.albums && fullResults.albums.length > 0 && (
                 <section>
                   <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
@@ -471,12 +548,7 @@ const Search = () => {
             </>
           )}
         </div>
-      ) : (
-        <div style={{ color: "#b3b3b3", marginTop: "50px" }}>
-          <h2>Tìm kiếm bài hát, nghệ sĩ hoặc album</h2>
-        </div>
-      )}
-
+      ) : null}
       {error && (
         <div style={{ color: "#e91429", marginTop: "16px" }}>{error}</div>
       )}

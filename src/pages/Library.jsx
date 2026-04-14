@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { songAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
-import { Play, Heart } from "lucide-react";
 import "./Library.css";
 
 const Library = () => {
@@ -18,21 +17,26 @@ const Library = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchLikedSongs = async (pageToFetch = 1) => {
+  const fetchSongs = async (pageToFetch = 1) => {
     setIsLoading(true);
     setError("");
+
     try {
-      const res = await songAPI.getLikedSongs({ page: pageToFetch, limit: 20 });
+      const res = await songAPI.getSongs({
+        page: pageToFetch,
+        limit: 20,
+      });
+
       if (res && res.success) {
-        // res.data: array of songs
-        // res.pagination: may be undefined if API doesn't return it
         setSongs(Array.isArray(res.data) ? res.data : []);
+
         const pag = res.pagination || {
           total: (res.data || []).length,
           page: pageToFetch,
           limit: 20,
           totalPages: 1,
         };
+
         setPagination({
           total: pag.total ?? (res.data ? res.data.length : 0),
           page: pag.page ?? pageToFetch,
@@ -49,18 +53,22 @@ const Library = () => {
         });
       }
     } catch (err) {
-      console.error("Lỗi tải thư viện:", err);
-      setError("Không thể tải thư viện. Vui lòng thử lại.");
+      console.error("Lỗi tải bài hát:", err);
+      setError("Không thể tải danh sách bài hát.");
       setSongs([]);
-      setPagination({ total: 0, page: pageToFetch, limit: 20, totalPages: 1 });
+      setPagination({
+        total: 0,
+        page: pageToFetch,
+        limit: 20,
+        totalPages: 1,
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLikedSongs(page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchSongs(page);
   }, [page]);
 
   const handlePageChange = (newPage) => {
@@ -70,20 +78,18 @@ const Library = () => {
   };
 
   if (isLoading)
-    return <div className="loading-state">Đang tải thư viện...</div>;
+    return <div className="loading-state">Đang tải bài hát...</div>;
 
   return (
     <div className="library-container">
       <div className="library-header">
-        <h1 className="library-title">Thư viện bài hát</h1>
-        <p className="library-subtitle">
-          {pagination.total || 0} bài hát đã thích
-        </p>
+        <h1 className="library-title">Tất cả bài hát</h1>
+        <p className="library-subtitle">{pagination.total || 0} bài hát</p>
       </div>
 
       <div className="song-list">
         {songs.length === 0 ? (
-          <p className="empty-text">Bạn chưa thích bài hát nào.</p>
+          <p className="empty-text">Không có bài hát nào.</p>
         ) : (
           songs.map((song, index) => (
             <div
@@ -110,11 +116,10 @@ const Library = () => {
                 </div>
               </div>
 
-              <div className="cell-album">{song.album || "-"}</div>
-              <div className="cell-genre">{song.genre || "-"}</div>
+              <div className="cell-album">{song.album?.title || "-"}</div>
+              <div className="cell-genre">{song.genre?.name || "-"}</div>
 
               <div className="cell-actions">
-                <Heart size={18} fill="#1ed760" color="#1ed760" />
                 <div className="cell-duration">
                   {song.duration_formatted || "0:00"}
                 </div>

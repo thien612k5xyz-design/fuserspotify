@@ -33,7 +33,7 @@ export const AddToPlaylistButton = ({ songId }) => {
 
   return (
     <>
-      {/* NÚT BẤM (DẤU CỘNG) */}
+      {/* NÚT BẤM */}
       <button
         onClick={handleOpenModal}
         title="Thêm vào Playlist"
@@ -49,7 +49,7 @@ export const AddToPlaylistButton = ({ songId }) => {
         <Plus size={20} />
       </button>
 
-      {/* POPUP HIỆN RA KHI BẤM */}
+      {/* POPUP KHI BẤM */}
       {isOpen && (
         <div
           onClick={(e) => {

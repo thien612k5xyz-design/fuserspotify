@@ -7,25 +7,34 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Hàm xử lý đăng nhập
-  const login = async (email, password) => {
-    const res = await authAPI.login({ email, password });
+  const register = async (display_name, email, password) => {
+    const res = await authAPI.register({ display_name, email, password });
     if (res.success) {
-      setUser(res.data);
+      setUser(res.data.user);
       if (res.data.token) localStorage.setItem("token", res.data.token);
+    } else {
+      throw new Error(res.message || "Đăng ký thất bại");
     }
     return res;
   };
 
-  // Hàm xử lý đăng xuất
+  const login = async (email, password) => {
+    const res = await authAPI.login({ email, password });
+    if (res.success) {
+      setUser(res.data.user);
+      if (res.data.token) localStorage.setItem("token", res.data.token);
+    } else {
+      throw new Error(res.message || "Đăng nhập thất bại");
+    }
+    return res;
+  };
+
   const logout = async () => {
-    // nếu có API logout
     setUser(null);
     localStorage.removeItem("token");
     return true;
   };
 
-  // Khi mount, kiểm tra token / lấy thông tin user
   useEffect(() => {
     let mounted = true;
     const fetchMe = async () => {
@@ -39,7 +48,6 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // Nếu có token trong localStorage thì gọi getMe, nếu không thì bỏ qua nhanh
     const token = localStorage.getItem("token");
     if (token) {
       fetchMe();
@@ -54,7 +62,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, setUser, loading, login, logout, register }}
+    >
       {children}
     </AuthContext.Provider>
   );

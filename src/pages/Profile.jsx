@@ -5,7 +5,6 @@ import { AuthContext } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
 import "./Profile.css";
 
-// --- HÀM CHUẨN HÓA LINK ẢNH ---
 const formatAvatarUrl = (url) => {
   if (!url) return null;
   if (url.startsWith("http")) return url;
@@ -31,10 +30,8 @@ const Profile = () => {
         const res = await userAPI.getProfile();
         if (res.success) {
           const profileData = res.data;
-          // Format lại link ảnh ngay khi vừa lấy từ DB về
           profileData.avatar_url = formatAvatarUrl(profileData.avatar_url);
           setProfile(profileData);
-          // Cập nhật luôn cho user context để đồng bộ Sidebar
           setUser((prev) => ({ ...prev, avatar_url: profileData.avatar_url }));
         }
       } catch (error) {
@@ -53,7 +50,7 @@ const Profile = () => {
 
   const handleUpgradePremium = async () => {
     if (
-      !window.confirm("Bạn có muốn nâng cấp lên Premium với giá 59.000đ/tháng?")
+      !window.confirm("Bạn có muốn nâng cấp lên Premium với giá 99.000đ/tháng?")
     )
       return;
 
@@ -88,7 +85,6 @@ const Profile = () => {
       const res = await userAPI.updateProfile(updateData);
       if (res.success) {
         const profileData = res.data;
-        // Format lại link ảnh trước khi cập nhật state để không bị đè mất
         profileData.avatar_url = formatAvatarUrl(profileData.avatar_url);
 
         setProfile(profileData);

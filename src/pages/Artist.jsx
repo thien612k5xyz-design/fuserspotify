@@ -1,55 +1,57 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useParams } from "react-router-dom";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { albumAPI, songAPI } from "../services/api";
+import { artistAPI, songAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
-import { Play, MoreHorizontal } from "lucide-react";
+import { Play, MoreHorizontal, BadgeCheck } from "lucide-react";
 import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
-import "./AlbumDetail.css";
+import "./Artist.css";
 
-const AlbumDetail = () => {
+const Artist = () => {
   const { id } = useParams();
+
   const playerContext = useContext(PlayerContext);
-  const storePlaySong = usePlayerStore((s) => s.playSong);
-  const currentSongStore = usePlayerStore((s) => s.currentSong);
-  const isPlayingStore = usePlayerStore((s) => s.isPlaying);
+  const storePlaySong =
+    typeof usePlayerStore === "function"
+      ? usePlayerStore((s) => s.playSong)
+      : null;
+  const currentSongStore =
+    typeof usePlayerStore === "function"
+      ? usePlayerStore((s) => s.currentSong)
+      : null;
+  const isPlayingStore =
+    typeof usePlayerStore === "function"
+      ? usePlayerStore((s) => s.isPlaying)
+      : null;
 
   const playSong = playerContext?.playSong || storePlaySong;
   const currentSong = playerContext?.currentSong || currentSongStore;
   const isPlaying = playerContext?.isPlaying || isPlayingStore;
 
-  const [album, setAlbum] = useState(null);
+  const [artist, setArtist] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSong, setSelectedSong] = useState(null);
 
   useEffect(() => {
-    const fetchAlbum = async () => {
+    const fetchArtist = async () => {
       setIsLoading(true);
       try {
-        const res = await albumAPI.getAlbumById(id);
+        const res = await artistAPI.getArtistById(id);
         if (res && res.success) {
-          const data = res.data;
-
-          const release_year =
-            data.release_year ||
-            (data.release_date
-              ? new Date(data.release_date).getFullYear()
-              : undefined);
-
-          setAlbum({ ...data, release_year });
+          setArtist(res.data);
         } else {
-          setAlbum(null);
+          setArtist(null);
         }
       } catch (err) {
-        console.error("Fetch album lỗi:", err);
-        setAlbum(null);
+        console.error("Lỗi khi fetch artist:", err);
+        setArtist(null);
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchAlbum();
+    fetchArtist();
   }, [id]);
+
   const handlePlaySong = async (song) => {
     if (!playSong) return;
 
@@ -68,76 +70,80 @@ const AlbumDetail = () => {
   };
 
   if (isLoading)
-    return <div className="p-10 text-white">Đang tải album...</div>;
+    return <div className="p-10 text-white">Đang tải nghệ sĩ...</div>;
+  if (!artist)
+    return <div className="p-10 text-white">Không tìm thấy nghệ sĩ.</div>;
 
-  if (!album)
-    return <div className="p-10 text-white">Không tìm thấy album.</div>;
+  const songsList = artist.top_songs || artist.songs || [];
 
   return (
-    <div className="album-detail-container">
-      {/* HEADER */}
-      <div className="album-header">
-        <img src={album.cover_url} alt="cover" className="album-cover" />
-
-        <div className="album-info">
-          <span>Album</span>
-          <h1>{album.title}</h1>
-
-          <div className="album-meta">
-            <span className="album-artist-name">{album.artist?.name}</span>
-            <span className="album-year-tracks">
-              • {album.release_year ?? "—"} • {album.songs?.length ?? 0} bài hát
-            </span>
-          </div>
+    <div className="artist-container">
+      {/* HEADER NGHỆ SĨ */}
+      <div
+        className="artist-header"
+        style={{
+          backgroundImage: `url(${artist.banner_url || artist.image_url})`,
+        }}
+      >
+        <div className="artist-header-overlay"></div>
+        <div className="artist-info">
+          <span>
+            <BadgeCheck size={20} fill="#10b981" color="white" /> Nghệ sĩ đã xác
+            minh
+          </span>
+          <h1>{artist.name}</h1>
+          <p className="artist-stats">
+            {artist.monthly_listeners?.toLocaleString() ||
+              artist.followers_count?.toLocaleString() ||
+              0}{" "}
+            người nghe hàng tháng
+          </p>
         </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="album-content">
-        {/* PLAY ALBUM */}
-        <div className="album-actions">
-          <button
-            className="btn-play-album"
-            onClick={() =>
-              album.songs?.length > 0 && handlePlaySong(album.songs[0])
-            }
-          >
-            <Play size={28} fill="currentColor" />
-          </button>
-        </div>
+      <div className="artist-content">
+        <h2 className="artist-section-title">Phổ biến</h2>
 
-        {/* SONG LIST */}
-        <div className="album-song-list">
-          {album.songs?.map((song, index) => {
+        {/* DANH SÁCH BÀI HÁT */}
+        <div className="song-list">
+          {songsList.map((song, index) => {
             const isThisPlaying =
               currentSong?.song_id === song.song_id && isPlaying;
-
             return (
               <div
                 key={song.song_id}
-                className="album-song-row"
-                onClick={() => handlePlaySong(song)} 
+                className="song-row"
+                onClick={() => handlePlaySong(song)}
+                style={{ cursor: "pointer" }}
               >
-                <div className="song-number">
-                  {isThisPlaying ? "▶" : index + 1}
+                <div className="song-index">
+                  {isThisPlaying ? (
+                    <span style={{ color: "#1ed760" }}>▶</span>
+                  ) : (
+                    index + 1
+                  )}
                 </div>
 
-                <div className="song-title-group">
-                  <div
-                    className={`song-title ${isThisPlaying ? "playing" : ""}`}
+                <div className="song-main">
+                  <img src={song.cover_url} alt="cover" />
+                  <span
+                    className={isThisPlaying ? "text-green" : ""}
+                    style={{ color: isThisPlaying ? "#1ed760" : "white" }}
                   >
                     {song.title}
-                  </div>
-                  <div className="song-artist">{album.artist?.name}</div>
+                  </span>
+                </div>
+
+                <div className="song-plays">
+                  {song.play_count?.toLocaleString()}
                 </div>
 
                 <div className="song-actions">
                   <span>{song.duration_formatted}</span>
-
                   <button
                     className="hover-btn"
                     onClick={(e) => {
-                      e.stopPropagation(); 
+                      e.stopPropagation();
                       setSelectedSong(song);
                     }}
                   >
@@ -150,7 +156,6 @@ const AlbumDetail = () => {
         </div>
       </div>
 
-      {/* MODAL */}
       <AddToPlaylistModal
         isOpen={!!selectedSong}
         onClose={() => setSelectedSong(null)}
@@ -160,4 +165,4 @@ const AlbumDetail = () => {
   );
 };
 
-export default AlbumDetail;
+export default Artist;

@@ -1,39 +1,164 @@
+/* Queue container */
 .queue-container {
-  padding: 2rem;
-  padding-bottom: 8rem;
-  max-width: 800px;
+  padding: 24px;
+  color: #e6e6e6;
+  max-width: 900px;
   margin: 0 auto;
 }
-.queue-title {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-bottom: 2rem;
-}
-.now-playing-section h3 {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #10b981;
-  margin-bottom: 1rem;
-}
-.up-next-section h3 {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: white;
-  margin-bottom: 1rem;
-  margin-top: 2rem;
-}
 
-.queue-item {
+/* Header */
+.queue-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  transition: background 0.2s;
+  margin-bottom: 16px;
 }
-.queue-item:hover {
-  background-color: #1f2937;
+.queue-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
 }
-.queue-item.active {
-  background-color: rgba(16, 185, 129, 0.1);
+.btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Empty state */
+.queue-empty {
+  padding: 30px;
+  color: #b3b3b3;
+  text-align: center;
+}
+
+/* List */
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Each item wrapper to allow controls on the right */
+.queue-item-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* SongListItem base */
+.song-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  width: 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.01),
+    rgba(255, 255, 255, 0)
+  );
+  transition:
+    background 0.15s,
+    transform 0.08s;
+}
+.song-list-item:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+  transform: translateY(-1px);
+}
+.song-list-item.active {
+  background-color: rgba(16, 185, 129, 0.06);
+  border-left: 3px solid rgba(16, 185, 129, 0.9);
+}
+
+/* Left: thumbnail + meta */
+.song-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.song-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #111;
+}
+.song-meta {
+  display: flex;
+  flex-direction: column;
+}
+.song-title {
+  font-weight: 600;
+  color: #fff;
+}
+.song-artist {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+/* Actions (hidden by default on small screens) */
+.song-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateX(6px);
+  transition:
+    opacity 0.12s,
+    transform 0.12s;
+}
+.song-list-item:hover .song-actions,
+.song-list-item.active .song-actions {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Buttons */
+.btn-icon {
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  color: #e6e6e6;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.play-btn {
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  color: #000;
+}
+.add-btn {
+  background: rgba(255, 255, 255, 0.02);
+}
+.more-btn {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Remove control on the right */
+.queue-item-controls {
+  margin-left: 12px;
+}
+.btn-link {
+  background: transparent;
+  border: none;
+  color: #f87171;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.btn-link:hover {
+  background: rgba(248, 113, 113, 0.08);
 }

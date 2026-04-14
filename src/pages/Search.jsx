@@ -33,6 +33,7 @@ const Search = () => {
       ? usePlayerStore((s) => s.playSong)
       : null;
 
+  // keep playSong available but we will navigate to SongPage on click
   const playSong =
     playerContext && playerContext.playSong
       ? playerContext.playSong
@@ -45,7 +46,6 @@ const Search = () => {
   const [fullResults, setFullResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [genres, setGenres] = useState([]);
   const debouncedSearchTerm = useDebounce(inputValue, 300);
 
@@ -53,9 +53,7 @@ const Search = () => {
     const fetchGenres = async () => {
       try {
         const res = await genreAPI.getGenres();
-        if (res && res.success) {
-          setGenres(res.data);
-        }
+        if (res && res.success) setGenres(res.data);
       } catch (err) {
         console.error("Lỗi lấy danh sách thể loại:", err);
       }
@@ -151,45 +149,22 @@ const Search = () => {
   useEffect(() => {
     const q = searchParams.get("q");
     if (q) fetchFullResults(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * handleResultClick
+   * - song  => navigate to SongPage (new page with Play / Like / Add to Playlist / Add to Queue)
+   * - artist => navigate to /artist/:id
+   * - album => navigate to /albums/:id
+   */
   const handleResultClick = async (item, type) => {
     setShowSuggestions(false);
 
     if (type === "song") {
-      const looksLikeSong = item && (item.song_id || item.file_url || item.id);
-      if (looksLikeSong && item.file_url) {
-        if (typeof playSong === "function") playSong(item);
-        else console.warn("playSong is not available");
-        return;
-      }
-
       const id = item.song_id || item.id;
       if (id) {
-        try {
-          const res = await songAPI.getSongById(id);
-          if (res && res.success && res.data) {
-            if (typeof playSong === "function") playSong(res.data);
-            else console.warn("playSong is not available");
-            return;
-          }
-        } catch (err) {
-          console.error("Lỗi lấy chi tiết bài hát:", err);
-        }
-      }
-
-      if (fullResults?.songs?.length) {
-        const found = fullResults.songs.find(
-          (s) =>
-            (item.song_id && s.song_id === item.song_id) ||
-            (item.text && s.title === item.text) ||
-            (item.title && s.title === item.title),
-        );
-        if (found) {
-          if (typeof playSong === "function") playSong(found);
-          else console.warn("playSong is not available");
-          return;
-        }
+        navigate(`/songpage/${id}`);
       }
       return;
     }
@@ -227,7 +202,7 @@ const Search = () => {
 
   return (
     <div className="search-page" style={{ padding: "30px", color: "white" }}>
-      {/* KHUNG TÌM KIẾM */}
+      {/* SEARCH BAR */}
       <div
         className="search-bar-container"
         style={{
@@ -261,7 +236,7 @@ const Search = () => {
           />
         </div>
 
-        {/* DROPDOWN GỢI Ý */}
+        {/* SUGGESTIONS DROPDOWN */}
         {showSuggestions && suggestions.length > 0 && (
           <div
             className="suggestions-dropdown"
@@ -303,6 +278,7 @@ const Search = () => {
         )}
       </div>
 
+      {/* EMPTY STATE: genres */}
       {!inputValue.trim() && !isLoading && !fullResults && (
         <section>
           <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
@@ -346,7 +322,7 @@ const Search = () => {
         </section>
       )}
 
-      {/* KẾT QUẢ TÌM KIẾM */}
+      {/* FULL RESULTS */}
       {isLoading ? (
         <h2>Đang tìm kiếm...</h2>
       ) : fullResults ? (
@@ -357,7 +333,7 @@ const Search = () => {
             <h2>Không tìm thấy kết quả cho "{fullResults.query}"</h2>
           ) : (
             <>
-              {/* BÀI HÁT */}
+              {/* SONGS */}
               {fullResults.songs && fullResults.songs.length > 0 && (
                 <section style={{ marginBottom: "40px" }}>
                   <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
@@ -440,7 +416,7 @@ const Search = () => {
                 </section>
               )}
 
-              {/* NGHỆ SĨ */}
+              {/* ARTISTS */}
               {fullResults.artists && fullResults.artists.length > 0 && (
                 <section style={{ marginBottom: "40px" }}>
                   <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
@@ -489,7 +465,7 @@ const Search = () => {
                 </section>
               )}
 
-              {/* ALBUM */}
+              {/* ALBUMS */}
               {fullResults.albums && fullResults.albums.length > 0 && (
                 <section>
                   <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
@@ -549,6 +525,7 @@ const Search = () => {
           )}
         </div>
       ) : null}
+
       {error && (
         <div style={{ color: "#e91429", marginTop: "16px" }}>{error}</div>
       )}

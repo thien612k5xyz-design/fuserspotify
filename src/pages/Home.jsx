@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { useNavigate } from "react-router-dom"; // Dùng để chuyển trang
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { songAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
@@ -9,36 +9,73 @@ import "./Home.css";
 const Home = () => {
   const { user } = useContext(AuthContext);
   const { playSong } = useContext(PlayerContext);
-  const navigate = useNavigate(); // Khởi tạo hook chuyển hướng
+  const navigate = useNavigate();
+
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [recommendedSongs, setRecommendedSongs] = useState([]);
 
   useEffect(() => {
-    const fetchHome = async () => {
+    const fetchAllData = async () => {
+      setIsLoading(true);
       try {
-        const res = await songAPI.getHome();
-        if (res.success) setData(res.data);
+        const homeRes = await songAPI.getHome();
+
+        if (homeRes.success) {
+          let homeData = homeRes.data;
+
+          if (!homeData.recommended || homeData.recommended.length < 5) {
+            try {
+              const extraRes = await songAPI.getSongs({
+                page: 1,
+                limit: 10,
+              });
+
+              if (extraRes.success && extraRes.data) {
+                const existingIds = new Set(
+                  homeData.recommended?.map((s) => s.song_id) || [],
+                );
+
+                const extra = extraRes.data
+                  .filter((song) => !existingIds.has(song.song_id))
+                  .slice(0, 8);
+
+                homeData.recommended = [
+                  ...(homeData.recommended || []),
+                  ...extra,
+                ].slice(0, 8);
+              }
+            } catch (extraErr) {
+              console.warn(
+                "Không thể tải bài bổ sung cho Recommended:",
+                extraErr,
+              );
+            }
+          }
+
+          setData(homeData);
+          setRecommendedSongs(homeData.recommended || []);
+        }
       } catch (err) {
         console.error("Lỗi tải Home:", err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchHome();
+
+    fetchAllData();
   }, []);
 
-  // --- HÀM XỬ LÝ CLICK QUẢNG CÁO (TRACKING & REDIRECT) ---
   const handleAdClick = async (ad) => {
     if (!ad) return;
 
     try {
-      // 1. Gọi API ghi nhận lượt click (Chạy ngầm không cần await để tránh lag UI)
       const token = localStorage.getItem("token");
       fetch(`http://localhost:5000/api/ads/${ad.ad_id}/impression`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // Phải có token vì route cần authenticate
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ is_clicked: true }),
       });
@@ -46,13 +83,10 @@ const Home = () => {
       console.error("Lỗi track quảng cáo:", error);
     }
 
-    // 2. Chuyển hướng người dùng đến trang đích
     if (ad.target_url) {
       if (ad.target_url.startsWith("http")) {
-        // Nếu là link ngoài (vd: https://google.com) thì mở tab mới
         window.open(ad.target_url, "_blank");
       } else {
-        // Nếu là link nội bộ (vd: /dashboard) thì chuyển trang
         navigate(ad.target_url);
       }
     }
@@ -64,6 +98,7 @@ const Home = () => {
         Đang tải...
       </div>
     );
+
   if (!data)
     return (
       <div className="no-data" style={{ color: "white", padding: "20px" }}>
@@ -71,7 +106,6 @@ const Home = () => {
       </div>
     );
 
-  // Hàm render từng mục nhạc
   const renderSongGrid = (songs) => (
     <div className="song-grid">
       {songs?.map((song) => (
@@ -87,7 +121,7 @@ const Home = () => {
             </button>
           </div>
           <h4>{song.title}</h4>
-          <p>{song.artist?.name}</p>
+          <p>{song.artist?.name || "Unknown"}</p>
         </div>
       ))}
     </div>
@@ -95,7 +129,7 @@ const Home = () => {
 
   return (
     <div className="home-container" style={{ padding: "30px" }}>
-      {/* --- BANNER QUẢNG CÁO ĐỘNG TỪ DB --- */}
+      {/* Banner Quảng cáo */}
       {user?.plan === "free" && data.current_ad && (
         <div
           className="ad-banner"
@@ -150,26 +184,11 @@ const Home = () => {
               Nâng cấp ngay để trải nghiệm âm nhạc không giới hạn.
             </p>
           </div>
-          <button
-            className="btn-upgrade"
-            style={{
-              padding: "12px 24px",
-              borderRadius: "30px",
-              background: "white",
-              color: "black",
-              fontWeight: "bold",
-              border: "none",
-              cursor: "pointer",
-              textTransform: "uppercase",
-              fontSize: "12px",
-            }}
-          >
-            Tìm hiểu thêm
-          </button>
+          <button className="btn-upgrade">Tìm hiểu thêm</button>
         </div>
       )}
 
-      {/* --- CÁC DANH MÁCH BÀI HÁT --- */}
+      {/* Trending */}
       <section>
         <h2
           className="section-title"
@@ -184,6 +203,7 @@ const Home = () => {
         )}
       </section>
 
+      {/* Mới phát hành */}
       <section style={{ marginTop: "40px" }}>
         <h2
           className="section-title"
@@ -198,6 +218,7 @@ const Home = () => {
         )}
       </section>
 
+      {/* DÀNH RIÊNG CHO BẠN */}
       <section style={{ marginTop: "40px" }}>
         <h2
           className="section-title"
@@ -205,10 +226,10 @@ const Home = () => {
         >
           Dành riêng cho bạn
         </h2>
-        {data.recommended?.length > 0 ? (
-          renderSongGrid(data.recommended)
+        {recommendedSongs.length > 0 ? (
+          renderSongGrid(recommendedSongs)
         ) : (
-          <p style={{ color: "#b3b3b3" }}>Chưa có dữ liệu</p>
+          <p style={{ color: "#b3b3b3" }}>Chưa có dữ liệu gợi ý</p>
         )}
       </section>
     </div>

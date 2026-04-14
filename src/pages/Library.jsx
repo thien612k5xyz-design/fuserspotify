@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { songAPI } from "../services/api";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";
-import { Play } from "lucide-react";
+import { Play, Plus } from "lucide-react";
 
 const Library = () => {
   const [songs, setSongs] = useState([]);
@@ -13,7 +13,8 @@ const Library = () => {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
-  const playSong = usePlayerStore((state) => state.playSong);
+  // Lấy playSong và addToQueue từ PlayerContext
+  const { playSong, addToQueue } = useContext(PlayerContext);
 
   const fetchLibrary = async (currentPage) => {
     setIsLoading(true);
@@ -22,7 +23,6 @@ const Library = () => {
       if (res.success) {
         setSongs(res.data || []);
 
-        // Normalize pagination from backend (support multiple key styles)
         const pag = res.pagination || {};
         let totalPages =
           pag.totalPages ??
@@ -40,7 +40,6 @@ const Library = () => {
 
         setPagination({ totalPages, currentPage: current });
       } else {
-        console.warn("getSongs returned success=false", res);
         setSongs([]);
         setPagination({ totalPages: 1, currentPage: currentPage });
       }
@@ -57,6 +56,21 @@ const Library = () => {
   }, [page]);
 
   const totalPages = pagination.totalPages || 1;
+
+  const handlePlaySong = async (song) => {
+    try {
+      if (!song.file_url) {
+        const res = await songAPI.getSongById(song.song_id);
+        if (res?.success && res.data) {
+          playSong(res.data);
+          return;
+        }
+      }
+      playSong(song);
+    } catch (err) {
+      console.error("Lỗi phát nhạc:", err);
+    }
+  };
 
   return (
     <div style={{ padding: "30px", color: "white" }}>
@@ -77,9 +91,7 @@ const Library = () => {
                   alignItems: "center",
                   padding: "12px 0",
                   borderBottom: "1px solid #282828",
-                  cursor: "pointer",
                 }}
-                onClick={() => playSong(song)}
               >
                 <span style={{ width: "40px", color: "#b3b3b3" }}>
                   {(page - 1) * 20 + index + 1}
@@ -93,10 +105,15 @@ const Library = () => {
                     height: "48px",
                     borderRadius: "4px",
                     marginRight: "15px",
+                    cursor: "pointer",
                   }}
+                  onClick={() => handlePlaySong(song)}
                 />
 
-                <div style={{ flex: 1 }}>
+                <div
+                  style={{ flex: 1, cursor: "pointer" }}
+                  onClick={() => handlePlaySong(song)}
+                >
                   <h4 style={{ margin: 0 }}>{song.title}</h4>
                   <p style={{ margin: 0, color: "#b3b3b3", fontSize: "14px" }}>
                     {song.artist?.name}
@@ -112,6 +129,47 @@ const Library = () => {
                 <span style={{ color: "#b3b3b3", marginLeft: "20px" }}>
                   {song.duration_formatted}
                 </span>
+
+                {/* Nút Play */}
+                <button
+                  style={{
+                    marginLeft: "15px",
+                    background: "#1db954",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => handlePlaySong(song)}
+                  title="Phát"
+                >
+                  <Play size={18} color="black" />
+                </button>
+
+                {/* Nút Add to Queue */}
+                <button
+                  style={{
+                    marginLeft: "10px",
+                    background: "#282828",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    color: "white",
+                  }}
+                  onClick={() => addToQueue(song)}
+                  title="Thêm vào hàng đợi"
+                >
+                  <Plus size={18} />
+                </button>
               </div>
             ))}
           </div>

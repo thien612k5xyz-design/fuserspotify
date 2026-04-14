@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Heart } from "lucide-react";
 import { songAPI } from "../services/api";
 
@@ -7,34 +7,53 @@ export const LikeButton = ({
   initialIsLiked = false,
   initialLikeCount = 0,
 }) => {
-  const [isLiked, setIsLiked] = useState(initialIsLiked);
-  const [likeCount, setLikeCount] = useState(initialLikeCount);
+  const [isLiked, setIsLiked] = useState(Boolean(initialIsLiked));
+  const [likeCount, setLikeCount] = useState(Number(initialLikeCount) || 0);
   const [isLiking, setIsLiking] = useState(false);
 
+  // Sync internal state when props change (e.g., currentSong changes)
+  useEffect(() => {
+    setIsLiked(Boolean(initialIsLiked));
+  }, [initialIsLiked]);
+
+  useEffect(() => {
+    setLikeCount(Number(initialLikeCount) || 0);
+  }, [initialLikeCount]);
+
   const handleToggleLike = async (e) => {
-    e.stopPropagation();
+    // Prevent the click from bubbling to parent row (which triggers play)
+    if (e && e.stopPropagation) e.stopPropagation();
 
     if (isLiking || !songId) return;
 
     const previousIsLiked = isLiked;
     const previousLikeCount = likeCount;
 
+    // Optimistic UI update
     setIsLiked(!previousIsLiked);
     setLikeCount(
-      previousIsLiked ? previousLikeCount - 1 : previousLikeCount + 1,
+      previousIsLiked
+        ? Math.max(0, previousLikeCount - 1)
+        : previousLikeCount + 1,
     );
     setIsLiking(true);
 
     try {
       const res = await songAPI.toggleLike(songId);
-      if (res.success && res.data) {
-        setIsLiked(res.data.is_liked);
+      if (res && res.success && res.data) {
+        // Use server response to ensure consistency
+        setIsLiked(Boolean(res.data.is_liked));
         if (res.data.like_count !== undefined) {
-          setLikeCount(res.data.like_count);
+          setLikeCount(Number(res.data.like_count));
         }
+      } else {
+        // If server returns unexpected response, rollback
+        setIsLiked(previousIsLiked);
+        setLikeCount(previousLikeCount);
       }
     } catch (error) {
       console.error("Lỗi thả tim:", error);
+      // rollback on error
       setIsLiked(previousIsLiked);
       setLikeCount(previousLikeCount);
     } finally {
@@ -58,6 +77,7 @@ export const LikeButton = ({
         transition: "transform 0.1s ease-in-out",
         transform: isLiking ? "scale(0.8)" : "scale(1)",
       }}
+      aria-pressed={isLiked}
     >
       <Heart
         size={20}
@@ -68,3 +88,5 @@ export const LikeButton = ({
     </button>
   );
 };
+
+export default LikeButton;

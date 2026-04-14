@@ -88,6 +88,7 @@ export const MusicPlayer = () => {
             navigate(`/song/${currentSong.song_id || currentSong.id}`)
           }
         />
+
         <div className="song-info">
           <h4
             onClick={() =>
@@ -106,10 +107,12 @@ export const MusicPlayer = () => {
             {currentSong.artist?.name || currentSong.artist || "Unknown"}
           </p>
         </div>
+
         <div className="player-actions">
           <LikeButton
             songId={currentSong.song_id || currentSong.id}
             initialIsLiked={currentSong.is_liked}
+            initialLikeCount={currentSong.like_count ?? 0}
           />
           <AddToPlaylistButton songId={currentSong.song_id || currentSong.id} />
         </div>
@@ -124,6 +127,7 @@ export const MusicPlayer = () => {
           >
             <Shuffle size={18} />
           </button>
+
           <button onClick={playPrev} className="btn-icon">
             <SkipBack size={22} />
           </button>
@@ -139,6 +143,7 @@ export const MusicPlayer = () => {
           <button onClick={playNext} className="btn-icon">
             <SkipForward size={22} />
           </button>
+
           <button
             onClick={toggleRepeat}
             className={`btn-icon ${isRepeat ? "active" : ""}`}
@@ -166,6 +171,7 @@ export const MusicPlayer = () => {
         <button className="btn-icon" onClick={() => navigate("/queue")}>
           <ListMusic size={20} />
         </button>
+
         <div className="volume-control">
           <Volume2 size={20} className="btn-icon" />
           <input

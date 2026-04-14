@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon } from "lucide-react";
 import { useDebounce } from "../hooks/useDebounce";
-import { searchAPI, songAPI, genreAPI } from "../services/api"; 
+import { searchAPI, songAPI, genreAPI } from "../services/api";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";

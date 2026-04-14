@@ -1,157 +1,175 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { songAPI } from "../services/api";
-import { PlayerContext } from "../context/PlayerContext";
-import "./Library.css";
+import { usePlayerStore } from "../store/usePlayerStore";
+import { LikeButton } from "../components/LikeButton";
+import { Play } from "lucide-react";
 
 const Library = () => {
-  const { playSong } = useContext(PlayerContext);
-
   const [songs, setSongs] = useState([]);
-  const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
-    total: 0,
-    page: 1,
-    limit: 20,
     totalPages: 1,
+    currentPage: 1,
   });
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const fetchSongs = async (pageToFetch = 1) => {
+  const playSong = usePlayerStore((state) => state.playSong);
+
+  const fetchLibrary = async (currentPage) => {
     setIsLoading(true);
-    setError("");
-
     try {
-      const res = await songAPI.getSongs({
-        page: pageToFetch,
-        limit: 20,
-      });
+      const res = await songAPI.getSongs({ page: currentPage, limit: 20 });
+      if (res.success) {
+        setSongs(res.data || []);
 
-      if (res && res.success) {
-        setSongs(Array.isArray(res.data) ? res.data : []);
+        // Normalize pagination from backend (support multiple key styles)
+        const pag = res.pagination || {};
+        let totalPages =
+          pag.totalPages ??
+          pag.total_pages ??
+          (pag.total && pag.limit
+            ? Math.max(1, Math.ceil(Number(pag.total) / Number(pag.limit)))
+            : undefined) ??
+          pag.total ??
+          1;
+        let current =
+          pag.currentPage ?? pag.current_page ?? pag.page ?? currentPage;
 
-        const pag = res.pagination || {
-          total: (res.data || []).length,
-          page: pageToFetch,
-          limit: 20,
-          totalPages: 1,
-        };
+        totalPages = Number(totalPages) || 1;
+        current = Number(current) || currentPage;
 
-        setPagination({
-          total: pag.total ?? (res.data ? res.data.length : 0),
-          page: pag.page ?? pageToFetch,
-          limit: pag.limit ?? 20,
-          totalPages: pag.totalPages ?? 1,
-        });
+        setPagination({ totalPages, currentPage: current });
       } else {
+        console.warn("getSongs returned success=false", res);
         setSongs([]);
-        setPagination({
-          total: 0,
-          page: pageToFetch,
-          limit: 20,
-          totalPages: 1,
-        });
+        setPagination({ totalPages: 1, currentPage: currentPage });
       }
     } catch (err) {
-      console.error("Lỗi tải bài hát:", err);
-      setError("Không thể tải danh sách bài hát.");
+      console.error("Lỗi tải thư viện:", err);
       setSongs([]);
-      setPagination({
-        total: 0,
-        page: pageToFetch,
-        limit: 20,
-        totalPages: 1,
-      });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSongs(page);
+    fetchLibrary(page);
   }, [page]);
 
-  const handlePageChange = (newPage) => {
-    if (newPage < 1 || newPage > pagination.totalPages) return;
-    setPage(newPage);
-    window.scrollTo(0, 0);
-  };
-
-  if (isLoading)
-    return <div className="loading-state">Đang tải bài hát...</div>;
+  const totalPages = pagination.totalPages || 1;
 
   return (
-    <div className="library-container">
-      <div className="library-header">
-        <h1 className="library-title">Tất cả bài hát</h1>
-        <p className="library-subtitle">{pagination.total || 0} bài hát</p>
-      </div>
+    <div style={{ padding: "30px", color: "white" }}>
+      <h1 style={{ fontSize: "42px", marginBottom: "30px" }}>
+        Thư viện của bạn
+      </h1>
 
-      <div className="song-list">
-        {songs.length === 0 ? (
-          <p className="empty-text">Không có bài hát nào.</p>
-        ) : (
-          songs.map((song, index) => (
-            <div
-              key={song.song_id}
-              className="song-table-row"
-              onClick={() => playSong(song)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") playSong(song);
+      {isLoading ? (
+        <p style={{ color: "#b3b3b3" }}>Đang tải thư viện...</p>
+      ) : (
+        <>
+          <div style={{ marginBottom: "30px" }}>
+            {songs.map((song, index) => (
+              <div
+                key={song.song_id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "12px 0",
+                  borderBottom: "1px solid #282828",
+                  cursor: "pointer",
+                }}
+                onClick={() => playSong(song)}
+              >
+                <span style={{ width: "40px", color: "#b3b3b3" }}>
+                  {(page - 1) * 20 + index + 1}
+                </span>
+
+                <img
+                  src={song.cover_url}
+                  alt=""
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "4px",
+                    marginRight: "15px",
+                  }}
+                />
+
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ margin: 0 }}>{song.title}</h4>
+                  <p style={{ margin: 0, color: "#b3b3b3", fontSize: "14px" }}>
+                    {song.artist?.name}
+                  </p>
+                </div>
+
+                <LikeButton
+                  songId={song.song_id}
+                  initialIsLiked={song.is_liked}
+                  initialLikeCount={song.like_count ?? 0}
+                />
+
+                <span style={{ color: "#b3b3b3", marginLeft: "20px" }}>
+                  {song.duration_formatted}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Phân trang */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "12px",
+              marginTop: "40px",
+            }}
+          >
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              style={{
+                padding: "10px 20px",
+                background: "#282828",
+                border: "none",
+                borderRadius: "8px",
+                color: "white",
+                cursor: page <= 1 ? "not-allowed" : "pointer",
               }}
             >
-              <div className="cell-index">
-                {index + 1 + (pagination.page - 1) * pagination.limit}
-              </div>
+              ← Trước
+            </button>
 
-              <div className="cell-info">
-                <img src={song.cover_url} alt={song.title} />
-                <div>
-                  <div className="cell-title">{song.title}</div>
-                  <div className="cell-artist">
-                    {song.artist?.name || "Unknown"}
-                  </div>
-                </div>
-              </div>
+            <span
+              style={{
+                padding: "10px 20px",
+                background: "#1db954",
+                color: "black",
+                borderRadius: "8px",
+                fontWeight: "bold",
+              }}
+            >
+              Trang {page} / {totalPages}
+            </span>
 
-              <div className="cell-album">{song.album?.title || "-"}</div>
-              <div className="cell-genre">{song.genre?.name || "-"}</div>
-
-              <div className="cell-actions">
-                <div className="cell-duration">
-                  {song.duration_formatted || "0:00"}
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {pagination.totalPages > 1 && (
-        <div className="pagination">
-          <button
-            disabled={pagination.page === 1}
-            onClick={() => handlePageChange(pagination.page - 1)}
-          >
-            Trang trước
-          </button>
-
-          <span className="page-indicator">
-            {pagination.page} / {pagination.totalPages}
-          </span>
-
-          <button
-            disabled={pagination.page === pagination.totalPages}
-            onClick={() => handlePageChange(pagination.page + 1)}
-          >
-            Trang sau
-          </button>
-        </div>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              style={{
+                padding: "10px 20px",
+                background: "#282828",
+                border: "none",
+                borderRadius: "8px",
+                color: "white",
+                cursor: page >= totalPages ? "not-allowed" : "pointer",
+              }}
+            >
+              Sau →
+            </button>
+          </div>
+        </>
       )}
-
-      {error && <div className="error-text">{error}</div>}
     </div>
   );
 };

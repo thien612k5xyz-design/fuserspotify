@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+// src/pages/SongDetail.jsx
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { songAPI } from "../services/api";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { Play } from "lucide-react";
 import { LikeButton } from "../components/LikeButton";
 import { AddToPlaylistButton } from "../components/AddToPlaylistButton";
 
@@ -10,6 +10,7 @@ const SongDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const playSong = usePlayerStore((state) => state.playSong);
+
   const [song, setSong] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -18,115 +19,95 @@ const SongDetail = () => {
       try {
         setIsLoading(true);
         const res = await songAPI.getSongById(id);
-        if (res.success) setSong(res.data);
+        if (res?.success) setSong(res.data);
       } catch (error) {
         console.error("Lỗi tải bài hát:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchSong();
+    if (id) fetchSong();
   }, [id]);
 
   if (isLoading)
     return (
-      <div style={{ padding: "50px", color: "white" }}>Đang tải bài hát...</div>
+      <div style={{ padding: 50, color: "white" }}>Đang tải bài hát...</div>
     );
+
   if (!song)
     return (
-      <div style={{ padding: "50px", color: "white" }}>
-        Không tìm thấy bài hát.
-      </div>
+      <div style={{ padding: 50, color: "white" }}>Không tìm thấy bài hát.</div>
     );
 
   return (
-    <div style={{ padding: "30px", color: "white" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "25px",
-          marginBottom: "30px",
-        }}
-      >
+    <div
+      style={{ padding: 30, color: "white", maxWidth: 1000, margin: "0 auto" }}
+    >
+      <div style={{ display: "flex", gap: 40, marginBottom: 50 }}>
+        {/* Ảnh bìa */}
         <img
           src={song.cover_url}
           alt={song.title}
           style={{
-            width: "232px",
-            height: "232px",
-            borderRadius: "8px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+            width: 300,
+            height: 300,
+            borderRadius: 12,
+            boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
           }}
         />
-        <div>
-          <span style={{ fontSize: "14px", fontWeight: "bold" }}>Bài hát</span>
-          <h1 style={{ fontSize: "48px", margin: "10px 0", fontWeight: "900" }}>
+
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: 52, fontWeight: 900, marginBottom: 10 }}>
             {song.title}
           </h1>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              fontSize: "14px",
-            }}
+          <p
+            style={{ fontSize: 24, color: "#b3b3b3", cursor: "pointer" }}
+            onClick={() => navigate(`/artist/${song.artist?.artist_id}`)}
           >
-            <span
-              onClick={() =>
-                navigate(`/artist/${song.artist?.artist_id || song.artist_id}`)
-              }
-              style={{ fontWeight: "bold", cursor: "pointer" }}
-              className="hover-underline"
+            {song.artist?.name}
+          </p>
+
+          {/* Chỉ giữ Like và Add to Playlist */}
+          <div style={{ margin: "30px 0", display: "flex", gap: 20 }}>
+            <LikeButton
+              songId={song.song_id}
+              initialIsLiked={song.is_liked}
+              initialLikeCount={song.like_count}
+            />
+            <AddToPlaylistButton songId={song.song_id} />
+          </div>
+
+          {/* Lời bài hát */}
+          <div>
+            <h3 style={{ color: "#1db954", marginBottom: 15 }}>Lời bài hát</h3>
+            <div
+              style={{
+                background: "#181818",
+                padding: 30,
+                borderRadius: 12,
+                lineHeight: 1.8,
+                whiteSpace: "pre-line",
+                maxHeight: 420,
+                overflowY: "auto",
+                fontSize: 16,
+              }}
             >
-              {song.artist?.name || "Nghệ sĩ"}
-            </span>
-            <span>•</span>
-            <span
-              onClick={() =>
-                song.album && navigate(`/album/${song.album.album_id}`)
-              }
-              style={{ cursor: "pointer", color: "#b3b3b3" }}
-              className={song.album ? "hover-underline" : ""}
-            >
-              {song.album?.title || "Single"}
-            </span>
-            <span>•</span>
-            <span style={{ color: "#b3b3b3" }}>{song.duration_formatted}</span>
+              {song.lyrics ? (
+                song.lyrics
+              ) : (
+                <p
+                  style={{
+                    color: "#666",
+                    fontStyle: "italic",
+                    textAlign: "center",
+                  }}
+                >
+                  Chưa có lời bài hát cho bài này.
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "20px",
-          marginBottom: "40px",
-        }}
-      >
-        <button
-          onClick={() => playSong(song)}
-          style={{
-            width: "56px",
-            height: "56px",
-            borderRadius: "50%",
-            background: "#1db954",
-            border: "none",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            cursor: "pointer",
-          }}
-        >
-          <Play size={28} fill="black" />
-        </button>
-        <LikeButton
-          songId={song.song_id}
-          initialIsLiked={song.is_liked}
-          initialLikeCount={song.like_count}
-        />
-        <AddToPlaylistButton songId={song.song_id} />
       </div>
     </div>
   );

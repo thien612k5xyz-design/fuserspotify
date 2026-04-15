@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import SongListItem from "../components/SongListItem";
 import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
-import "./queue.css";
+import "./Queue.css";
 
 const Queue = () => {
   const { queue, currentIndex, playSong, removeFromQueue, setQueueAndPlay } =

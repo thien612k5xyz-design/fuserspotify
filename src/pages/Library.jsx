@@ -73,19 +73,13 @@ const Library = () => {
     }
   };
 
-  // Hàm xử lý thêm vào hàng đợi + Hiện thông báo
+  // thêm vào hàng đợi + Hiện thông báo
   const handleAddToQueue = (song) => {
     addToQueue(song);
-
-    // Xóa timeout cũ nếu người dùng ấn liên tục nhiều bài
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
     }
-
-    // Hiển thị thông báo
     setToastMessage(`Đã thêm "${song.title}" vào hàng đợi`);
-
-    // Tự động ẩn sau 3 giây
     toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
     }, 3000);
@@ -180,7 +174,7 @@ const Library = () => {
                     cursor: "pointer",
                     color: "white",
                   }}
-                  onClick={() => handleAddToQueue(song)} // <-- Sửa lại gọi hàm mới
+                  onClick={() => handleAddToQueue(song)}
                   title="Thêm vào hàng đợi"
                 >
                   <Plus size={18} />
@@ -247,7 +241,7 @@ const Library = () => {
         <div
           style={{
             position: "fixed",
-            bottom: "120px", // Cách một khoảng để không bị thanh Music Player che mất
+            bottom: "120px",
             left: "50%",
             transform: "translateX(-50%)",
             backgroundColor: "#1db954",
@@ -283,7 +277,7 @@ const Library = () => {
         </div>
       )}
 
-      {/* Thêm chút CSS cho animation hiển thị mượt mà */}
+      {/*css animation hiển thị*/}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translate(-50%, 20px); }

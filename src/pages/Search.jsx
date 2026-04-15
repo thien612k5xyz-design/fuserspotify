@@ -32,8 +32,6 @@ const Search = () => {
     typeof usePlayerStore === "function"
       ? usePlayerStore((s) => s.playSong)
       : null;
-
-  // keep playSong available but we will navigate to SongPage on click
   const playSong =
     playerContext && playerContext.playSong
       ? playerContext.playSong
@@ -149,7 +147,6 @@ const Search = () => {
   useEffect(() => {
     const q = searchParams.get("q");
     if (q) fetchFullResults(q);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**

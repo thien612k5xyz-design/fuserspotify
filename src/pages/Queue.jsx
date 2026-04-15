@@ -1,18 +1,13 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import SongListItem from "../components/SongListItem";
+import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
 import "./queue.css";
 
 const Queue = () => {
-  const {
-    queue,
-    currentIndex,
-    playSong,
-    addToQueue,
-    removeFromQueue,
-    setQueueAndPlay,
-    nextSong,
-  } = useContext(PlayerContext);
+  const { queue, currentIndex, playSong, removeFromQueue, setQueueAndPlay } =
+    useContext(PlayerContext);
+  const [selectedSong, setSelectedSong] = useState(null);
 
   if (!queue || queue.length === 0) {
     return <div className="queue-empty">Hàng đợi trống</div>;
@@ -34,11 +29,14 @@ const Queue = () => {
 
       <div className="queue-list">
         {queue.map((song, i) => (
-          <div key={song.song_id || song.id} className="queue-item-wrapper">
+          <div
+            key={`${song.song_id || song.id}-${i}`}
+            className="queue-item-wrapper"
+          >
             <SongListItem
               song={song}
               onPlay={() => playSong(song)}
-              onAddToQueue={() => addToQueue(song)}
+              onAddToQueue={() => setSelectedSong(song)}
               isActive={i === currentIndex}
             />
             <div className="queue-item-controls">
@@ -52,6 +50,13 @@ const Queue = () => {
           </div>
         ))}
       </div>
+
+      {/* Modal Thêm vào Playlist */}
+      <AddToPlaylistModal
+        isOpen={!!selectedSong}
+        onClose={() => setSelectedSong(null)}
+        song={selectedSong}
+      />
     </div>
   );
 };

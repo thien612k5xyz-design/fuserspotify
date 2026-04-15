@@ -11,6 +11,7 @@ import {
   PlusSquare,
   Heart,
   ListMusic,
+  Users,
   LogOut,
 } from "lucide-react";
 import "./Sidebar.css";
@@ -30,7 +31,6 @@ export const Sidebar = () => {
   return (
     <div className="sidebar">
       <div className="sidebar-logo">Spotify</div>
-
       <nav className="sidebar-nav">
         <NavLink
           to="/"
@@ -40,7 +40,6 @@ export const Sidebar = () => {
         >
           <Home size={24} /> Trang chủ
         </NavLink>
-
         <NavLink
           to="/search"
           className={({ isActive }) =>
@@ -49,7 +48,6 @@ export const Sidebar = () => {
         >
           <Search size={24} /> Tìm kiếm
         </NavLink>
-
         <NavLink
           to="/library"
           className={({ isActive }) =>
@@ -70,7 +68,6 @@ export const Sidebar = () => {
             >
               <BarChart3 size={24} /> Thống kê cá nhân
             </NavLink>
-
             <NavLink
               to="/profile"
               className={({ isActive }) =>
@@ -123,7 +120,6 @@ export const Sidebar = () => {
         >
           <Heart size={24} /> Bài hát đã thích
         </NavLink>
-
         <NavLink
           to="/my-playlists"
           className={({ isActive }) =>
@@ -132,10 +128,21 @@ export const Sidebar = () => {
         >
           <ListMusic size={24} /> Playlist của tôi
         </NavLink>
+
+        {/* NGHỆ SĨ ĐÃ FOLLOW (Chỉ hiện khi đã đăng nhập) */}
+        {!loading && user && (
+          <NavLink
+            to="/followed-artists"
+            className={({ isActive }) =>
+              isActive ? "nav-item active" : "nav-item"
+            }
+          >
+            <Users size={24} /> Nghệ sĩ đã follow
+          </NavLink>
+        )}
       </nav>
 
       <div className="sidebar-divider" />
-
       <div className="sidebar-footer">
         {loading ? (
           <div className="user-info">

@@ -12,7 +12,6 @@ export const PlayerContext = createContext();
 
 export const PlayerProvider = ({ children }) => {
   const audioRef = useRef(new Audio());
-
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [queue, setQueue] = useState([]);
@@ -23,6 +22,7 @@ export const PlayerProvider = ({ children }) => {
 
   const lastRecordedRef = useRef({ songId: null, timestamp: 0 });
   const isTransitioningRef = useRef(false);
+  const hasRecordedInitialRef = useRef(false);
 
   const { token } = React.useContext(AuthContext);
 
@@ -33,8 +33,8 @@ export const PlayerProvider = ({ children }) => {
 
     let dp = Number(durationPlayed) || 0;
     if (dp > 10000) dp = Math.floor(dp / 1000);
-
     dp = Math.floor(dp);
+
     if (dp < 5) return;
 
     const now = Date.now();
@@ -44,6 +44,7 @@ export const PlayerProvider = ({ children }) => {
     ) {
       return;
     }
+
     lastRecordedRef.current = { songId, timestamp: now };
 
     try {
@@ -55,12 +56,11 @@ export const PlayerProvider = ({ children }) => {
     }
   }, []);
 
-  // ================== FLUSH ==================
   const flushCurrentPlay = useCallback(async () => {
     const audio = audioRef.current;
     const songId = currentSong?.song_id || currentSong?.id;
-
     if (!songId || !audio) return;
+
     let durationPlayed = Math.floor(audio.currentTime || 0);
     if (durationPlayed > 10000)
       durationPlayed = Math.floor(durationPlayed / 1000);
@@ -70,17 +70,16 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [currentSong, recordPlayToServer]);
 
-  // ================== LOAD & PLAY ==================
   const loadAndPlay = async (song, index = -1) => {
     if (!song || isTransitioningRef.current) return;
 
     isTransitioningRef.current = true;
+    hasRecordedInitialRef.current = false;
 
     try {
       await flushCurrentPlay();
 
       let fullSong = { ...song };
-
       if (!fullSong.file_url && fullSong.song_id) {
         const res = await songAPI.getSongById(fullSong.song_id);
         if (res?.success) fullSong = res.data;
@@ -102,7 +101,6 @@ export const PlayerProvider = ({ children }) => {
 
       let played = false;
 
-      // STREAM
       if (fullSong.song_id && token) {
         try {
           const res = await fetch(getStreamUrl(fullSong.song_id), {
@@ -113,6 +111,7 @@ export const PlayerProvider = ({ children }) => {
             const objectUrl = URL.createObjectURL(blob);
             audio._objectUrl = objectUrl;
             audio.src = objectUrl;
+
             await new Promise((r) => setTimeout(r, 30));
             await audio.play();
             setIsPlaying(true);
@@ -125,7 +124,6 @@ export const PlayerProvider = ({ children }) => {
         }
       }
 
-      // FALLBACK
       if (!played && fullSong.file_url) {
         try {
           audio.src = fullSong.file_url;
@@ -152,10 +150,8 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  // ================== CONTROL ==================
   const playSong = (song) => {
     if (!song) return;
-
     const id = song.song_id || song.id;
     const currentId = currentSong?.song_id || currentSong?.id;
 
@@ -197,7 +193,6 @@ export const PlayerProvider = ({ children }) => {
 
   const playNext = async () => {
     if (queue.length === 0 || isTransitioningRef.current) return;
-
     try {
       await flushCurrentPlay();
     } catch (e) {
@@ -214,7 +209,6 @@ export const PlayerProvider = ({ children }) => {
 
   const playPrev = async () => {
     if (queue.length === 0 || isTransitioningRef.current) return;
-
     try {
       await flushCurrentPlay();
     } catch (e) {
@@ -236,7 +230,6 @@ export const PlayerProvider = ({ children }) => {
   const addToQueue = (song) => {
     if (!song) return;
     const id = song.song_id || song.id;
-
     setQueue((prev) =>
       prev.some((s) => (s.song_id || s.id) === id) ? prev : [...prev, song],
     );
@@ -249,31 +242,46 @@ export const PlayerProvider = ({ children }) => {
 
   const closePlayer = async () => {
     const audio = audioRef.current;
-
     if (audio) {
       try {
         await flushCurrentPlay();
       } catch (e) {
         console.warn(e);
       }
-
       audio.pause();
       audio.src = "";
       audio.currentTime = 0;
-
       if (audio._objectUrl) {
         URL.revokeObjectURL(audio._objectUrl);
         audio._objectUrl = null;
       }
     }
-
     setCurrentSong(null);
     setIsPlaying(false);
     setQueue([]);
     setCurrentIndex(-1);
   };
 
-  // ================== ENDED ==================
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onTimeUpdate = async () => {
+      if (hasRecordedInitialRef.current) return;
+      const songId = currentSong?.song_id || currentSong?.id;
+      if (!songId) return;
+
+      let duration = Math.floor(audio.currentTime || 0);
+      if (duration >= 5) {
+        hasRecordedInitialRef.current = true;
+        await recordPlayToServer(songId, duration);
+      }
+    };
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    return () => audio.removeEventListener("timeupdate", onTimeUpdate);
+  }, [currentSong, recordPlayToServer]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -296,6 +304,7 @@ export const PlayerProvider = ({ children }) => {
 
       let duration = Math.floor(audio.currentTime || audio.duration || 0);
       if (duration > 10000) duration = Math.floor(duration / 1000);
+
       if (duration >= 5) {
         await recordPlayToServer(songId, duration);
       }
@@ -307,14 +316,12 @@ export const PlayerProvider = ({ children }) => {
     return () => audio.removeEventListener("ended", onEnded);
   }, [currentSong, playNext, recordPlayToServer]);
 
-  // tab hidden -> flush
   useEffect(() => {
     const onHidden = () => {
       if (document.hidden) {
         flushCurrentPlay();
       }
     };
-
     document.addEventListener("visibilitychange", onHidden);
     return () => document.removeEventListener("visibilitychange", onHidden);
   }, [flushCurrentPlay]);
@@ -323,7 +330,6 @@ export const PlayerProvider = ({ children }) => {
     const handle = () => {
       const audio = audioRef.current;
       const songId = currentSong?.song_id || currentSong?.id;
-
       if (!songId) return;
 
       let duration = Math.floor(audio.currentTime || 0);
@@ -333,10 +339,10 @@ export const PlayerProvider = ({ children }) => {
       const url = `${BASE_URL}/songs/${songId}/play`;
       const payload = JSON.stringify({ duration_played: duration });
       const blob = new Blob([payload], { type: "application/json" });
+
       try {
         navigator.sendBeacon(url, blob);
       } catch (e) {
-        // fallback: fire-and-forget fetch with keepalive
         try {
           fetch(url, {
             method: "POST",
@@ -344,9 +350,7 @@ export const PlayerProvider = ({ children }) => {
             headers: { "Content-Type": "application/json" },
             keepalive: true,
           }).catch(() => {});
-        } catch (err) {
-          // ignore
-        }
+        } catch (err) {}
       }
     };
 
@@ -354,7 +358,6 @@ export const PlayerProvider = ({ children }) => {
     return () => window.removeEventListener("beforeunload", handle);
   }, [currentSong]);
 
-  // volume sync
   useEffect(() => {
     audioRef.current.volume = volume;
   }, [volume]);

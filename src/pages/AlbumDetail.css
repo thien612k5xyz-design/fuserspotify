@@ -1,66 +1,107 @@
+/* Container */
 .album-detail-container {
   padding-bottom: 8rem;
+  color: #fff;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial;
 }
 
+/* Header */
 .album-header {
   background: linear-gradient(to bottom, #7f1d1d, #111827);
   padding: 5rem 2rem 2rem 2rem;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 2rem;
 }
 
+/* Cover */
 .album-cover {
   width: 220px;
   height: 220px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   object-fit: cover;
+  flex-shrink: 0;
 }
 
+/* Info column */
 .album-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
-.album-info span {
+/* Type label */
+.album-info .album-type,
+.album-type {
   text-transform: uppercase;
   font-size: 0.875rem;
   font-weight: bold;
   margin-bottom: 0.5rem;
+  color: #d1d5db;
 }
 
-.album-info h1 {
+/* Title */
+.album-info h1,
+.album-title {
   font-size: 4rem;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1.05;
   margin: 0 0 1rem 0;
+  max-width: 100%;
+  word-break: break-word;
 }
 
-.album-meta {
+/* Meta row: support both class names album-meta and album-meta-row */
+.album-meta,
+.album-meta-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
+  gap: 12px;
+  margin-top: 8px;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 
+/* Artist name: limit width and show ellipsis if too long */
 .album-artist-name {
   color: white;
   cursor: pointer;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  font-weight: 700;
+  text-decoration: none;
 }
 
+/* Hover underline for artist */
 .album-artist-name:hover {
   text-decoration: underline;
 }
 
+/* Year and tracks: keep fixed, don't shrink */
 .album-year-tracks {
   color: #9ca3af;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+  margin-left: 6px;
 }
 
+/* Content area */
 .album-content {
   padding: 2rem;
 }
 
+/* Actions */
 .album-actions {
   display: flex;
   align-items: center;
@@ -68,6 +109,7 @@
   margin-bottom: 2.5rem;
 }
 
+/* Play button */
 .btn-play-album {
   width: 56px;
   height: 56px;
@@ -89,6 +131,7 @@
   background-color: #34d399;
 }
 
+/* Icon action button */
 .btn-icon-action {
   background: none;
   border: none;
@@ -101,41 +144,61 @@
   color: white;
 }
 
+/* Song list rows: grid layout */
+.album-song-list {
+  display: block;
+}
+
 .album-song-row {
   display: grid;
-  grid-template-columns: 40px minmax(250px, 1fr) 100px;
+  grid-template-columns: 40px minmax(250px, 1fr) 160px;
   gap: 1rem;
   padding: 0.75rem 1rem;
   align-items: center;
   border-radius: 0.375rem;
   cursor: pointer;
   transition: background-color 0.2s;
+  min-height: 56px;
 }
 
 .album-song-row:hover {
   background-color: rgba(31, 41, 55, 0.8);
 }
 
+/* Number column */
 .song-number {
   text-align: center;
   color: #9ca3af;
+  font-weight: 600;
 }
+
+/* Title group */
 .song-title-group {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
+
 .song-title {
-  font-weight: bold;
+  font-weight: 700;
   color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .song-artist {
   font-size: 0.875rem;
   color: #9ca3af;
+  margin-top: 4px;
 }
+
+/* Playing state */
 .song-title.playing {
   color: #10b981;
 }
 
+/* Actions column */
 .song-actions {
   display: flex;
   justify-content: flex-end;
@@ -144,22 +207,84 @@
   color: #9ca3af;
 }
 
+/* Hover buttons initially hidden, appear on hover */
 .hover-btn {
   opacity: 0;
   background: none;
   border: none;
   color: inherit;
   cursor: pointer;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
 }
+
 .album-song-row:hover .hover-btn {
   opacity: 1;
   color: white;
 }
+
 .album-song-row:hover .song-number-text {
   display: none;
 }
-.album-song-row:hover .hover-play {
-  display: block;
-  opacity: 1;
-  color: white;
+
+@media (max-width: 1100px) {
+  .album-info h1 {
+    font-size: 3rem;
+  }
+  .album-artist-name {
+    max-width: 55%;
+  }
+  .album-song-row {
+    grid-template-columns: 36px minmax(180px, 1fr) 120px;
+  }
+}
+
+@media (max-width: 720px) {
+  .album-header {
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1rem 1.5rem 1rem;
+    text-align: center;
+  }
+
+  .album-cover {
+    width: 180px;
+    height: 180px;
+  }
+
+  .album-info {
+    align-items: center;
+  }
+
+  .album-info h1 {
+    font-size: 2rem;
+  }
+
+  .album-meta,
+  .album-meta-row {
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .album-artist-name {
+    max-width: 70%;
+  }
+
+  .album-song-row {
+    grid-template-columns: 36px 1fr 96px;
+  }
+
+  .song-actions span {
+    display: none;
+  }
+}
+
+.album-info a {
+  color: inherit;
+}
+
+/* Small polish */
+.album-detail-container a {
+  -webkit-tap-highlight-color: transparent;
 }

@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { playlistAPI } from "../services/api";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";
 import { Music, Play, Trash2 } from "lucide-react";
 
 const PlaylistDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const playSong = usePlayerStore((state) => state.playSong);
+
+  // Lấy playSong từ PlayerContext
+  const { playSong } = useContext(PlayerContext);
 
   const [playlist, setPlaylist] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,13 +19,14 @@ const PlaylistDetail = () => {
     const fetchDetail = async () => {
       try {
         const res = await playlistAPI.getPlaylistById(id);
-        if (res.success) setPlaylist(res.data);
+        if (res?.success) setPlaylist(res.data || null);
       } catch (error) {
         console.error("Lỗi lấy chi tiết playlist:", error);
       } finally {
         setIsLoading(false);
       }
     };
+
     if (id) fetchDetail();
   }, [id]);
 
@@ -35,7 +38,7 @@ const PlaylistDetail = () => {
       setPlaylist((prev) => ({
         ...prev,
         songs: prev.songs.filter((song) => song.song_id !== songId),
-        total_songs: prev.total_songs - 1,
+        total_songs: (prev.total_songs || 1) - 1,
       }));
     } catch (error) {
       alert("Lỗi khi xóa bài hát");
@@ -57,6 +60,7 @@ const PlaylistDetail = () => {
 
   if (isLoading)
     return <div style={{ padding: "50px", color: "white" }}>Đang tải...</div>;
+
   if (!playlist)
     return (
       <div style={{ padding: "50px", color: "white" }}>
@@ -66,7 +70,7 @@ const PlaylistDetail = () => {
 
   return (
     <div style={{ padding: "30px", color: "white" }}>
-      {/*HEADER PLAYLIST */}
+      {/* HEADER PLAYLIST */}
       <div
         style={{
           display: "flex",
@@ -96,6 +100,7 @@ const PlaylistDetail = () => {
             <Music size={80} color="#b3b3b3" />
           )}
         </div>
+
         <div>
           <p
             style={{
@@ -107,12 +112,15 @@ const PlaylistDetail = () => {
           >
             Playlist
           </p>
+
           <h1 style={{ fontSize: "72px", margin: "10px 0", fontWeight: "900" }}>
             {playlist.name}
           </h1>
+
           <p style={{ margin: "0 0 10px 0", color: "#b3b3b3" }}>
             {playlist.description}
           </p>
+
           <div
             style={{
               display: "flex",
@@ -131,7 +139,7 @@ const PlaylistDetail = () => {
         </div>
       </div>
 
-      {/*NÚT ĐIỀU KHIỂN CHUNG */}
+      {/* NÚT ĐIỀU KHIỂN CHUNG */}
       <div
         style={{
           display: "flex",
@@ -163,6 +171,7 @@ const PlaylistDetail = () => {
             />
           </button>
         )}
+
         <button
           onClick={handleDeletePlaylist}
           style={{
@@ -198,7 +207,7 @@ const PlaylistDetail = () => {
         {playlist.songs?.length > 0 ? (
           playlist.songs.map((song, index) => (
             <div
-              key={song.song_id}
+              key={song.song_id || song.id}
               className="song-item-row"
               style={{
                 display: "flex",
@@ -210,6 +219,7 @@ const PlaylistDetail = () => {
               <span style={{ width: "30px", color: "#b3b3b3" }}>
                 {index + 1}
               </span>
+
               <div
                 onClick={() => playSong(song)}
                 style={{
@@ -223,8 +233,14 @@ const PlaylistDetail = () => {
                 <img
                   src={song.cover_url}
                   alt="cover"
-                  style={{ width: "40px", height: "40px", borderRadius: "4px" }}
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "4px",
+                    objectFit: "cover",
+                  }}
                 />
+
                 <div>
                   <h4 style={{ margin: 0, fontSize: "16px" }}>{song.title}</h4>
                   <p style={{ margin: 0, fontSize: "14px", color: "#b3b3b3" }}>
@@ -232,6 +248,7 @@ const PlaylistDetail = () => {
                   </p>
                 </div>
               </div>
+
               <div
                 style={{ display: "flex", alignItems: "center", gap: "15px" }}
               >
@@ -240,6 +257,7 @@ const PlaylistDetail = () => {
                   initialIsLiked={song.is_liked}
                   initialLikeCount={song.like_count}
                 />
+
                 <button
                   onClick={(e) => handleRemoveSong(song.song_id, e)}
                   style={{
@@ -253,6 +271,7 @@ const PlaylistDetail = () => {
                 >
                   <Trash2 size={18} />
                 </button>
+
                 <span
                   style={{
                     color: "#b3b3b3",

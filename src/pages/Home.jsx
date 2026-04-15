@@ -10,7 +10,6 @@ const Home = () => {
   const { user } = useContext(AuthContext);
   const { playSong } = useContext(PlayerContext);
   const navigate = useNavigate();
-
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [recommendedSongs, setRecommendedSongs] = useState([]);
@@ -20,23 +19,19 @@ const Home = () => {
       setIsLoading(true);
       try {
         const homeRes = await songAPI.getHome();
-
         if (homeRes.success) {
           let homeData = homeRes.data;
-
+          // Logic bổ sung bài hát nếu phần recommended bị thiếu (giữ nguyên)
           if (!homeData.recommended || homeData.recommended.length < 5) {
             try {
               const extraRes = await songAPI.getSongs({ page: 1, limit: 10 });
-
               if (extraRes.success && extraRes.data) {
                 const existingIds = new Set(
                   homeData.recommended?.map((s) => s.song_id) || [],
                 );
-
                 const extra = extraRes.data
                   .filter((song) => !existingIds.has(song.song_id))
                   .slice(0, 8);
-
                 homeData.recommended = [
                   ...(homeData.recommended || []),
                   ...extra,
@@ -49,7 +44,6 @@ const Home = () => {
               );
             }
           }
-
           setData(homeData);
           setRecommendedSongs(homeData.recommended || []);
         }
@@ -59,13 +53,11 @@ const Home = () => {
         setIsLoading(false);
       }
     };
-
     fetchAllData();
   }, []);
 
   const handleAdClick = async (ad) => {
     if (!ad) return;
-
     try {
       const token = localStorage.getItem("token");
       await fetch(`http://localhost:5000/api/ads/${ad.ad_id}/impression`, {
@@ -79,7 +71,6 @@ const Home = () => {
     } catch (error) {
       console.error("Lỗi track quảng cáo:", error);
     }
-
     if (ad.target_url) {
       if (ad.target_url.startsWith("http")) {
         window.open(ad.target_url, "_blank");
@@ -88,6 +79,7 @@ const Home = () => {
       }
     }
   };
+
   const handleUpgradeClick = () => {
     navigate("/profile");
   };
@@ -122,6 +114,75 @@ const Home = () => {
           </div>
           <h4>{song.title}</h4>
           <p>{song.artist?.name || "Unknown"}</p>
+        </div>
+      ))}
+    </div>
+  );
+
+  const fallbackColors = [
+    "#E13300",
+    "#1E3264",
+    "#E8115B",
+    "#148A08",
+    "#BC5900",
+    "#509BF5",
+    "#8D67AB",
+    "#7358FF",
+  ];
+
+  const renderGenreGrid = (genres) => (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+        gap: "20px",
+      }}
+    >
+      {genres?.map((genre, index) => (
+        <div
+          key={genre.genre_id || genre.id || index}
+          // Sửa route thành /genre/ (không có s)
+          onClick={() => navigate(`/genre/${genre.genre_id || genre.id}`)}
+          style={{
+            backgroundColor:
+              genre.color || fallbackColors[index % fallbackColors.length],
+            borderRadius: "8px",
+            padding: "16px",
+            height: "100px",
+            cursor: "pointer",
+            position: "relative",
+            overflow: "hidden",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+          }}
+        >
+          <h3
+            style={{
+              color: "white",
+              margin: 0,
+              fontSize: "20px",
+              fontWeight: "bold",
+              zIndex: 2,
+              position: "relative",
+            }}
+          >
+            {genre.name}
+          </h3>
+          {(genre.image_url || genre.cover_url) && (
+            <img
+              src={genre.image_url || genre.cover_url}
+              alt={genre.name}
+              style={{
+                position: "absolute",
+                bottom: "-10px",
+                right: "-10px",
+                width: "80px",
+                height: "80px",
+                transform: "rotate(25deg)",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                borderRadius: "4px",
+              }}
+            />
+          )}
         </div>
       ))}
     </div>
@@ -184,8 +245,6 @@ const Home = () => {
               Nâng cấp ngay để trải nghiệm âm nhạc không giới hạn.
             </p>
           </div>
-
-          {/*"Tìm hiểu thêm" */}
           <button
             className="btn-upgrade"
             onClick={(e) => {
@@ -196,6 +255,19 @@ const Home = () => {
             Tìm hiểu thêm
           </button>
         </div>
+      )}
+
+      {/* Nghe gần đây */}
+      {data.recent_played?.length > 0 && (
+        <section style={{ marginBottom: "40px" }}>
+          <h2
+            className="section-title"
+            style={{ color: "white", marginBottom: "20px" }}
+          >
+            Nghe gần đây
+          </h2>
+          {renderSongGrid(data.recent_played)}
+        </section>
       )}
 
       {/* Trending */}
@@ -212,6 +284,19 @@ const Home = () => {
           <p style={{ color: "#b3b3b3" }}>Chưa có dữ liệu</p>
         )}
       </section>
+
+      {/* Thể loại phổ biến - Dùng popular_genres (có s) cho dữ liệu */}
+      {data.popular_genres?.length > 0 && (
+        <section style={{ marginTop: "40px" }}>
+          <h2
+            className="section-title"
+            style={{ color: "white", marginBottom: "20px" }}
+          >
+            Thể loại phổ biến
+          </h2>
+          {renderGenreGrid(data.popular_genres)}
+        </section>
+      )}
 
       {/* Mới phát hành */}
       <section style={{ marginTop: "40px" }}>

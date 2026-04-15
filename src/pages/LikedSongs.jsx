@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { songAPI } from "../services/api";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";
 import { Heart } from "lucide-react";
 
 const LikedSongs = () => {
   const [likedSongs, setLikedSongs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const playSong = usePlayerStore((state) => state.playSong);
+
+  // Lấy playSong từ PlayerContext
+  const { playSong } = useContext(PlayerContext);
 
   useEffect(() => {
     const fetchLikedSongs = async () => {
       try {
         const res = await songAPI.getLikedSongs();
-        if (res.success) setLikedSongs(res.data);
+        if (res?.success) setLikedSongs(res.data || []);
       } catch (error) {
         console.error("Lỗi tải bài hát đã thích:", error);
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchLikedSongs();
   }, []);
 
@@ -56,6 +59,7 @@ const LikedSongs = () => {
         >
           <Heart size={80} fill="white" color="white" />
         </div>
+
         <div>
           <p
             style={{
@@ -67,9 +71,11 @@ const LikedSongs = () => {
           >
             Playlist
           </p>
+
           <h1 style={{ fontSize: "72px", margin: "10px 0" }}>
             Bài hát đã thích
           </h1>
+
           <p style={{ margin: 0, color: "#b3b3b3" }}>
             {likedSongs.length} bài hát
           </p>
@@ -80,7 +86,7 @@ const LikedSongs = () => {
         {likedSongs.length > 0 ? (
           likedSongs.map((song, index) => (
             <div
-              key={song.song_id}
+              key={song.song_id || song.id}
               className="song-item-row"
               style={{
                 display: "flex",
@@ -92,6 +98,7 @@ const LikedSongs = () => {
               <span style={{ width: "30px", color: "#b3b3b3" }}>
                 {index + 1}
               </span>
+
               <div
                 onClick={() => playSong(song)}
                 style={{
@@ -105,8 +112,9 @@ const LikedSongs = () => {
                 <img
                   src={song.cover_url}
                   alt=""
-                  style={{ width: "40px", height: "40px" }}
+                  style={{ width: "40px", height: "40px", objectFit: "cover" }}
                 />
+
                 <div>
                   <h4 style={{ margin: 0 }}>{song.title}</h4>
                   <p style={{ margin: 0, fontSize: "13px", color: "#b3b3b3" }}>
@@ -114,6 +122,7 @@ const LikedSongs = () => {
                   </p>
                 </div>
               </div>
+
               <div
                 style={{ display: "flex", alignItems: "center", gap: "20px" }}
               >

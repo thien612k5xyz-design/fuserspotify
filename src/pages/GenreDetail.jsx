@@ -10,14 +10,27 @@ const GenreDetail = () => {
   const navigate = useNavigate();
   const { playSong } = useContext(PlayerContext);
   const [songs, setSongs] = useState([]);
+  const [genreName, setGenreName] = useState("Tuyển tập Thể loại");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSongs = async () => {
+    const fetchGenreData = async () => {
       try {
+        setIsLoading(true);
         const res = await genreAPI.getGenreSongs(id);
+
         if (res.success) {
-          setSongs(res.data?.data || res.data || []);
+          const fetchedSongs = res.data?.data || res.data || [];
+          setSongs(fetchedSongs);
+          if (res.data?.genre_name) {
+            setGenreName(res.data.genre_name);
+          } else if (res.data?.name) {
+            setGenreName(res.data.name);
+          } else if (fetchedSongs.length > 0) {
+            const firstSong = fetchedSongs[0];
+            const nameFromSong = firstSong.genre_name || firstSong.genre?.name;
+            if (nameFromSong) setGenreName(nameFromSong);
+          }
         }
       } catch (error) {
         console.error("Lỗi tải bài hát thể loại:", error);
@@ -25,7 +38,8 @@ const GenreDetail = () => {
         setIsLoading(false);
       }
     };
-    fetchSongs();
+
+    fetchGenreData();
   }, [id]);
 
   const handlePlay = async (song) => {
@@ -71,7 +85,7 @@ const GenreDetail = () => {
       </button>
 
       <h1 style={{ fontSize: "48px", fontWeight: "900", marginBottom: "40px" }}>
-        Tuyển tập Thể loại
+        {genreName}
       </h1>
 
       {songs.length === 0 ? (

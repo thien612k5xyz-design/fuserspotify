@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { songAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";
@@ -13,6 +13,10 @@ const Library = () => {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
+  // State quản lý thông báo (Toast)
+  const [toastMessage, setToastMessage] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
   // Lấy playSong và addToQueue từ PlayerContext
   const { playSong, addToQueue } = useContext(PlayerContext);
 
@@ -22,7 +26,6 @@ const Library = () => {
       const res = await songAPI.getSongs({ page: currentPage, limit: 20 });
       if (res.success) {
         setSongs(res.data || []);
-
         const pag = res.pagination || {};
         let totalPages =
           pag.totalPages ??
@@ -34,10 +37,8 @@ const Library = () => {
           1;
         let current =
           pag.currentPage ?? pag.current_page ?? pag.page ?? currentPage;
-
         totalPages = Number(totalPages) || 1;
         current = Number(current) || currentPage;
-
         setPagination({ totalPages, currentPage: current });
       } else {
         setSongs([]);
@@ -72,8 +73,26 @@ const Library = () => {
     }
   };
 
+  // Hàm xử lý thêm vào hàng đợi + Hiện thông báo
+  const handleAddToQueue = (song) => {
+    addToQueue(song);
+
+    // Xóa timeout cũ nếu người dùng ấn liên tục nhiều bài
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+
+    // Hiển thị thông báo
+    setToastMessage(`Đã thêm "${song.title}" vào hàng đợi`);
+
+    // Tự động ẩn sau 3 giây
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
+
   return (
-    <div style={{ padding: "30px", color: "white" }}>
+    <div style={{ padding: "30px", color: "white", position: "relative" }}>
       <h1 style={{ fontSize: "42px", marginBottom: "30px" }}>
         Thư viện của bạn
       </h1>
@@ -96,7 +115,6 @@ const Library = () => {
                 <span style={{ width: "40px", color: "#b3b3b3" }}>
                   {(page - 1) * 20 + index + 1}
                 </span>
-
                 <img
                   src={song.cover_url}
                   alt=""
@@ -109,7 +127,6 @@ const Library = () => {
                   }}
                   onClick={() => handlePlaySong(song)}
                 />
-
                 <div
                   style={{ flex: 1, cursor: "pointer" }}
                   onClick={() => handlePlaySong(song)}
@@ -119,13 +136,11 @@ const Library = () => {
                     {song.artist?.name}
                   </p>
                 </div>
-
                 <LikeButton
                   songId={song.song_id}
                   initialIsLiked={song.is_liked}
                   initialLikeCount={song.like_count ?? 0}
                 />
-
                 <span style={{ color: "#b3b3b3", marginLeft: "20px" }}>
                   {song.duration_formatted}
                 </span>
@@ -165,7 +180,7 @@ const Library = () => {
                     cursor: "pointer",
                     color: "white",
                   }}
-                  onClick={() => addToQueue(song)}
+                  onClick={() => handleAddToQueue(song)} // <-- Sửa lại gọi hàm mới
                   title="Thêm vào hàng đợi"
                 >
                   <Plus size={18} />
@@ -198,7 +213,6 @@ const Library = () => {
             >
               ← Trước
             </button>
-
             <span
               style={{
                 padding: "10px 20px",
@@ -210,7 +224,6 @@ const Library = () => {
             >
               Trang {page} / {totalPages}
             </span>
-
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
@@ -228,6 +241,55 @@ const Library = () => {
           </div>
         </>
       )}
+
+      {/* Giao diện Thông báo (Toast) */}
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "120px", // Cách một khoảng để không bị thanh Music Player che mất
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#1db954",
+            color: "#000",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            fontWeight: "bold",
+            fontSize: "15px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            animation: "fadeIn 0.3s ease-in-out",
+          }}
+        >
+          <div
+            style={{
+              background: "#000",
+              color: "#1db954",
+              borderRadius: "50%",
+              width: "20px",
+              height: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "12px",
+            }}
+          >
+            ✓
+          </div>
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Thêm chút CSS cho animation hiển thị mượt mà */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { PlayerContext } from "../context/PlayerContext";
 import { albumAPI, songAPI } from "../services/api";
 import { Play, MoreHorizontal, Plus } from "lucide-react";
@@ -20,20 +20,24 @@ const AlbumDetail = () => {
       setIsLoading(true);
       try {
         const res = await albumAPI.getAlbumById(id);
-        if (res?.success) {
-          const data = res.data;
+        const data = res?.success ? res.data : res;
+        if (data) {
           const release_year = data.release_date
             ? new Date(data.release_date).getFullYear()
             : undefined;
           setAlbum({ ...data, release_year });
+        } else {
+          setAlbum(null);
         }
       } catch (err) {
         console.error("Fetch album lỗi:", err);
+        setAlbum(null);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchAlbum();
+
+    if (id) fetchAlbum();
   }, [id]);
 
   const handlePlayAlbum = () => {
@@ -42,18 +46,20 @@ const AlbumDetail = () => {
   };
 
   const handlePlaySong = async (song) => {
-    if (!song?.song_id) return;
-    try {
-      const res = await songAPI.getSongById(song.song_id);
-      if (res?.success && res.data) {
-        playSong(res.data);
-      } else {
-        playSong(song);
+    if (!song) return;
+    if (song.song_id) {
+      try {
+        const res = await songAPI.getSongById(song.song_id);
+        const data = res?.success ? res.data : res;
+        if (data) {
+          playSong(data);
+          return;
+        }
+      } catch (err) {
+        console.warn("Không lấy được chi tiết bài hát, phát tạm:", err);
       }
-    } catch (err) {
-      console.error("Lỗi lấy chi tiết bài hát:", err);
-      playSong(song);
     }
+    playSong(song);
   };
 
   const handleAddToQueue = (song) => {
@@ -69,12 +75,33 @@ const AlbumDetail = () => {
     <div className="album-detail-container">
       <div className="album-header">
         <img src={album.cover_url} alt="cover" className="album-cover" />
+
         <div className="album-info">
-          <span>Album</span>
-          <h1>{album.title}</h1>
-          <div className="album-meta">
-            <span className="album-artist-name">{album.artist?.name}</span>
-            <span className="album-year-tracks">
+          <span className="album-type">Album</span>
+
+          <h1 className="album-title">{album.title}</h1>
+
+          {/* Use className "album-meta" to match CSS */}
+          <div className="album-meta" style={{ marginTop: 8, width: "100%" }}>
+            <Link
+              to={`/artist/${album.artist?.artist_id || album.artist?.id || album.artist_id}`}
+              className="album-artist-name"
+              title={album.artist?.name || album.artist || ""}
+              style={{
+                maxWidth: "60%",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                display: "inline-block",
+              }}
+            >
+              {album.artist?.name || album.artist || "Unknown Artist"}
+            </Link>
+
+            <span
+              className="album-year-tracks"
+              style={{ color: "#9ca3af", fontSize: "14px", flexShrink: 0 }}
+            >
               • {album.release_year ?? "—"} • {album.songs?.length ?? 0} bài hát
             </span>
           </div>
@@ -82,9 +109,12 @@ const AlbumDetail = () => {
       </div>
 
       <div className="album-content">
-        {/* Nút Play*/}
         <div className="album-actions">
-          <button className="btn-play-album" onClick={handlePlayAlbum}>
+          <button
+            className="btn-play-album"
+            onClick={handlePlayAlbum}
+            title="Phát toàn bộ album"
+          >
             <Play size={28} fill="currentColor" />
           </button>
         </div>
@@ -96,7 +126,7 @@ const AlbumDetail = () => {
 
             return (
               <div
-                key={song.song_id}
+                key={song.song_id || `${index}-${song.title}`}
                 className={`album-song-row ${isThisPlaying ? "playing" : ""}`}
                 onClick={() => handlePlaySong(song)}
               >
@@ -111,17 +141,29 @@ const AlbumDetail = () => {
                 <div className="song-title-group">
                   <div
                     className={`song-title ${isThisPlaying ? "playing" : ""}`}
+                    style={{
+                      maxWidth: "60ch",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     {song.title}
                   </div>
-                  <div className="song-artist">{album.artist?.name}</div>
+                  <div className="song-artist" style={{ color: "#9ca3af" }}>
+                    {album.artist?.name || album.artist || "Unknown Artist"}
+                  </div>
                 </div>
 
                 <div
                   className="song-actions"
-                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                  style={{ display: "flex", gap: "12px" }}
                 >
-                  <span>{song.duration_formatted}</span>
+                  <span
+                    style={{ color: "#9ca3af", width: 60, textAlign: "right" }}
+                  >
+                    {song.duration_formatted}
+                  </span>
 
                   <button
                     className="hover-btn"
@@ -140,6 +182,7 @@ const AlbumDetail = () => {
                       e.stopPropagation();
                       setSelectedSong(song);
                     }}
+                    title="Thêm vào playlist / Thao tác khác"
                   >
                     <MoreHorizontal size={20} />
                   </button>

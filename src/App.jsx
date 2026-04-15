@@ -1,12 +1,9 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-
 import { AuthProvider } from "./context/AuthContext";
 import { PlayerProvider } from "./context/PlayerContext";
-
 import { Sidebar } from "./components/Sidebar";
 import { MusicPlayer } from "./components/MusicPlayer";
-
 import Home from "./pages/Home";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
@@ -23,7 +20,7 @@ import Register from "./pages/Register";
 import UserDashboard from "./pages/UserDashboard";
 import SongDetail from "./pages/SongDetail";
 import SongPage from "./pages/SongPage";
-
+import FollowedArtists from "./pages/FollowedArtists";
 import "./App.css";
 
 function App() {
@@ -52,6 +49,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/dashboard" element={<UserDashboard />} />
                 <Route path="/genre/:id" element={<GenreDetail />} />
+                <Route path="/followed-artists" element={<FollowedArtists />} />
               </Routes>
             </main>
             <MusicPlayer />

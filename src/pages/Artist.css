@@ -156,3 +156,58 @@
     display: none;
   }
 }
+/* Nút + và More */
+.song-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.queue-btn,
+.more-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.queue-btn:hover {
+  color: #1ed760;
+  background: rgba(30, 215, 96, 0.1);
+}
+
+.more-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive - Không ẩn nút nữa */
+@media (max-width: 768px) {
+  .song-row {
+    grid-template-columns: 40px 1fr 100px; /* Giảm cột actions */
+  }
+
+  .song-actions {
+    display: flex; /* Không ẩn nữa */
+    gap: 8px;
+  }
+}
+.follow-btn {
+  background: #1db954;
+  color: black;
+  border: none;
+}
+
+.follow-btn.following {
+  background: #535353;
+  color: white;
+}
+
+.follow-btn:hover:not(.following) {
+  background: #1ed760;
+  transform: scale(1.05);
+}

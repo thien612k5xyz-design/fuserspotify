@@ -11,10 +11,12 @@ const Queue = () => {
     addToQueue,
     removeFromQueue,
     setQueueAndPlay,
+    nextSong,
   } = useContext(PlayerContext);
 
-  if (!queue || queue.length === 0)
+  if (!queue || queue.length === 0) {
     return <div className="queue-empty">Hàng đợi trống</div>;
+  }
 
   return (
     <div className="queue-container">
@@ -23,10 +25,7 @@ const Queue = () => {
         <div className="queue-actions">
           <button
             className="btn-secondary"
-            onClick={() => {
-              // play from start
-              setQueueAndPlay(queue, 0);
-            }}
+            onClick={() => setQueueAndPlay(queue, 0)}
           >
             Phát từ đầu
           </button>
@@ -46,7 +45,6 @@ const Queue = () => {
               <button
                 className="btn-link remove-btn"
                 onClick={() => removeFromQueue(song.song_id || song.id)}
-                aria-label="Xóa khỏi hàng đợi"
               >
                 Xóa
               </button>

@@ -172,3 +172,28 @@
 .btn-icon.active {
   color: #1ed760;
 }
+/* Nút đóng Music Player */
+.close-player-btn {
+  background: transparent;
+  border: none;
+  color: #b3b3b3;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-player-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.player-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}

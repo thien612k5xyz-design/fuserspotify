@@ -108,6 +108,7 @@ export const songAPI = {
     }),
 
   getRecentSongs: () => fetchWithAuth("/songs/recent", { method: "GET" }),
+  stream: (id) => `${BASE_URL}/songs/${id}/stream`,
 };
 
 export const artistAPI = {

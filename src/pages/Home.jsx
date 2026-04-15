@@ -26,10 +26,7 @@ const Home = () => {
 
           if (!homeData.recommended || homeData.recommended.length < 5) {
             try {
-              const extraRes = await songAPI.getSongs({
-                page: 1,
-                limit: 10,
-              });
+              const extraRes = await songAPI.getSongs({ page: 1, limit: 10 });
 
               if (extraRes.success && extraRes.data) {
                 const existingIds = new Set(
@@ -71,7 +68,7 @@ const Home = () => {
 
     try {
       const token = localStorage.getItem("token");
-      fetch(`http://localhost:5000/api/ads/${ad.ad_id}/impression`, {
+      await fetch(`http://localhost:5000/api/ads/${ad.ad_id}/impression`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -90,6 +87,9 @@ const Home = () => {
         navigate(ad.target_url);
       }
     }
+  };
+  const handleUpgradeClick = () => {
+    navigate("/profile");
   };
 
   if (isLoading)
@@ -184,7 +184,17 @@ const Home = () => {
               Nâng cấp ngay để trải nghiệm âm nhạc không giới hạn.
             </p>
           </div>
-          <button className="btn-upgrade">Tìm hiểu thêm</button>
+
+          {/*"Tìm hiểu thêm" */}
+          <button
+            className="btn-upgrade"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleUpgradeClick();
+            }}
+          >
+            Tìm hiểu thêm
+          </button>
         </div>
       )}
 
@@ -218,7 +228,7 @@ const Home = () => {
         )}
       </section>
 
-      {/* DÀNH RIÊNG CHO BẠN */}
+      {/* Dành riêng cho bạn */}
       <section style={{ marginTop: "40px" }}>
         <h2
           className="section-title"

@@ -6,11 +6,13 @@ import React, {
   useCallback,
 } from "react";
 import { songAPI, BASE_URL } from "../services/api";
+import { AuthContext } from "../context/AuthContext";
 
 export const PlayerContext = createContext();
 
 export const PlayerProvider = ({ children }) => {
   const audioRef = useRef(new Audio());
+
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [queue, setQueue] = useState([]);
@@ -19,336 +21,343 @@ export const PlayerProvider = ({ children }) => {
   const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
 
-  // Track played seconds more robustly
-  const playedSecondsRef = useRef(0);
-  const lastAudioTimeRef = useRef(0);
-
-  // Prevent duplicate recordPlay calls for same song in short time
   const lastRecordedRef = useRef({ songId: null, timestamp: 0 });
+  const isTransitioningRef = useRef(false);
 
-  /**
-   * Record play to server
-   * Uses songAPI.recordPlay if available, otherwise falls back to fetch.
-   * Backend requires authentication for POST /api/songs/:id/play.
-   */
-  const recordPlayToServer = useCallback(
-    async ({ songId, durationPlayed, source = "web", deviceType = "web" }) => {
-      if (!songId) return;
-      if (!durationPlayed || durationPlayed < 5) return; // backend threshold
+  const { token } = React.useContext(AuthContext);
 
-      // Avoid duplicate sends within 5 seconds
-      const now = Date.now();
-      const last = lastRecordedRef.current;
-      if (last.songId === songId && now - last.timestamp < 5000) return;
-      lastRecordedRef.current = { songId, timestamp: now };
+  const getStreamUrl = (songId) => `${BASE_URL}/songs/${songId}/stream`;
 
-      try {
-        if (songAPI && typeof songAPI.recordPlay === "function") {
-          await songAPI.recordPlay(songId, {
-            duration_played: Math.floor(durationPlayed),
-            source,
-            device_type: deviceType,
-          });
-          return;
-        }
+  const recordPlayToServer = useCallback(async (songId, durationPlayed) => {
+    if (!songId) return;
 
-        // fallback fetch
-        const token = localStorage.getItem("token");
-        await fetch(`${BASE_URL}/songs/${songId}/play`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            duration_played: Math.floor(durationPlayed),
-            source,
-            device_type: deviceType,
-          }),
-        });
-      } catch (err) {
-        console.error("Ghi play thất bại:", err);
-      }
-    },
-    [],
-  );
+    let dp = Number(durationPlayed) || 0;
+    if (dp > 10000) dp = Math.floor(dp / 1000);
 
-  /**
-   * Helper to flush and record the currently playing song before switching.
-   * Should be called BEFORE changing currentSong or resetting playedSecondsRef.
-   */
-  const flushCurrentPlay = useCallback(
-    async (reason = "switch") => {
-      const audio = audioRef.current;
-      const prevSongId = currentSong?.song_id || currentSong?.id;
-      if (!prevSongId || !audio) return;
+    dp = Math.floor(dp);
+    if (dp < 5) return;
 
-      // Use accumulated playedSecondsRef for accurate played duration
-      const durationPlayed = Math.floor(playedSecondsRef.current || 0);
-
-      // If audio.currentTime is larger (edge cases), prefer that
-      const currentTime = Math.floor(audio.currentTime || 0);
-      const finalPlayed = Math.max(durationPlayed, currentTime);
-
-      if (finalPlayed < 5) return; // backend threshold
-
-      await recordPlayToServer({
-        songId: prevSongId,
-        durationPlayed: finalPlayed,
-        source: reason,
-        deviceType: "web",
-      });
-    },
-    [currentSong, recordPlayToServer],
-  );
-
-  const loadAndPlay = async (song, index = -1) => {
-    if (!song) return;
-
-    // If switching from an existing song, record its play before resetting
+    const now = Date.now();
     if (
-      currentSong &&
-      (currentSong.song_id || currentSong.id) !== (song.song_id || song.id)
+      lastRecordedRef.current.songId === songId &&
+      now - lastRecordedRef.current.timestamp < 15000
     ) {
-      try {
-        await flushCurrentPlay("switch");
-      } catch (e) {
-        console.error("Error flushing previous play:", e);
-      }
+      return;
     }
+    lastRecordedRef.current = { songId, timestamp: now };
 
-    let fullSong = { ...song };
-
-    if (!fullSong.file_url) {
-      try {
-        console.log("Đang lấy chi tiết bài hát...");
-        const res = await songAPI.getSongById(fullSong.song_id || fullSong.id);
-        if (res?.success && res.data) {
-          fullSong = res.data;
-        } else {
-          console.error("Không lấy được file_url");
-          return;
-        }
-      } catch (err) {
-        console.error("Lỗi lấy chi tiết bài hát:", err);
-        return;
-      }
+    try {
+      await songAPI.recordPlay(songId, {
+        duration_played: dp,
+      });
+    } catch (err) {
+      console.error("Ghi play lỗi:", err);
     }
+  }, []);
 
-    // Reset played tracking for the new song
-    playedSecondsRef.current = 0;
-    lastAudioTimeRef.current = 0;
-
-    setCurrentSong(fullSong);
-    if (index >= 0) setCurrentIndex(index);
-
+  // ================== FLUSH ==================
+  const flushCurrentPlay = useCallback(async () => {
     const audio = audioRef.current;
-    audio.pause();
+    const songId = currentSong?.song_id || currentSong?.id;
 
-    if (fullSong.file_url) {
-      audio.src = fullSong.file_url;
+    if (!songId || !audio) return;
+    let durationPlayed = Math.floor(audio.currentTime || 0);
+    if (durationPlayed > 10000)
+      durationPlayed = Math.floor(durationPlayed / 1000);
+
+    if (durationPlayed >= 5) {
+      await recordPlayToServer(songId, durationPlayed);
+    }
+  }, [currentSong, recordPlayToServer]);
+
+  // ================== LOAD & PLAY ==================
+  const loadAndPlay = async (song, index = -1) => {
+    if (!song || isTransitioningRef.current) return;
+
+    isTransitioningRef.current = true;
+
+    try {
+      await flushCurrentPlay();
+
+      let fullSong = { ...song };
+
+      if (!fullSong.file_url && fullSong.song_id) {
+        const res = await songAPI.getSongById(fullSong.song_id);
+        if (res?.success) fullSong = res.data;
+      }
+
+      setCurrentSong(fullSong);
+      if (index >= 0) setCurrentIndex(index);
+
+      const audio = audioRef.current;
+      if (audio._objectUrl) {
+        URL.revokeObjectURL(audio._objectUrl);
+        audio._objectUrl = null;
+      }
+
+      audio.pause();
+      audio.src = "";
       audio.currentTime = 0;
       audio.volume = volume;
-      try {
-        await audio.play();
-        setIsPlaying(true);
-        console.log("▶ Tự động phát:", fullSong.title);
-      } catch (err) {
-        console.error("Browser chặn auto-play:", err);
-        setIsPlaying(false);
+
+      let played = false;
+
+      // STREAM
+      if (fullSong.song_id && token) {
+        try {
+          const res = await fetch(getStreamUrl(fullSong.song_id), {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            audio._objectUrl = objectUrl;
+            audio.src = objectUrl;
+            await new Promise((r) => setTimeout(r, 30));
+            await audio.play();
+            setIsPlaying(true);
+            played = true;
+          } else {
+            console.warn("Stream fetch failed", res.status, res.statusText);
+          }
+        } catch (e) {
+          console.warn("Stream fetch error", e);
+        }
       }
-    } else {
-      console.error("Không có file_url để phát nhạc");
+
+      // FALLBACK
+      if (!played && fullSong.file_url) {
+        try {
+          audio.src = fullSong.file_url;
+          await new Promise((r) => setTimeout(r, 30));
+          await audio.play();
+          setIsPlaying(true);
+          played = true;
+        } catch (e) {
+          console.warn("Fallback play error", e);
+        }
+      }
+
+      if (!played) setIsPlaying(false);
+
+      audio.onerror = () => {
+        console.warn("Audio error");
+        setIsPlaying(false);
+      };
+    } catch (err) {
+      console.error("Lỗi play:", err);
+      setIsPlaying(false);
+    } finally {
+      isTransitioningRef.current = false;
     }
   };
 
-  const playSong = async (song) => {
+  // ================== CONTROL ==================
+  const playSong = (song) => {
     if (!song) return;
-    const songId = song.song_id || song.id;
+
+    const id = song.song_id || song.id;
     const currentId = currentSong?.song_id || currentSong?.id;
-    if (currentId && currentId === songId) {
+
+    if (id === currentId) {
       togglePlayPause();
       return;
     }
 
-    // If queue empty, initialize it
     if (queue.length === 0) {
       setQueue([song]);
       setCurrentIndex(0);
     }
 
-    // If switching from another song, flush previous play BEFORE loading new
-    if (currentSong) {
-      try {
-        await flushCurrentPlay("manual");
-      } catch (e) {
-        console.error("Error flushing play before manual playSong:", e);
-      }
-    }
-
     loadAndPlay(song);
   };
 
-  const togglePlayPause = () => {
+  const togglePlayPause = async () => {
     const audio = audioRef.current;
     if (!audio.src) return;
+
     if (audio.paused) {
-      audio
-        .play()
-        .then(() => setIsPlaying(true))
-        .catch(console.error);
+      try {
+        await audio.play();
+        setIsPlaying(true);
+      } catch (err) {
+        console.warn("Play failed", err);
+        setIsPlaying(false);
+      }
     } else {
       audio.pause();
       setIsPlaying(false);
+      try {
+        await flushCurrentPlay();
+      } catch (e) {
+        console.warn("Flush on pause failed", e);
+      }
     }
   };
 
   const playNext = async () => {
-    if (queue.length === 0) return;
+    if (queue.length === 0 || isTransitioningRef.current) return;
 
-    // flush current play before moving to next
-    if (currentSong) {
-      try {
-        await flushCurrentPlay("next");
-      } catch (e) {
-        console.error("Error flushing play before next:", e);
-      }
+    try {
+      await flushCurrentPlay();
+    } catch (e) {
+      console.warn(e);
     }
 
-    let nextIndex = currentIndex + 1;
-    if (isShuffle) nextIndex = Math.floor(Math.random() * queue.length);
-    if (nextIndex >= queue.length) {
-      if (isRepeat) nextIndex = 0;
-      else {
-        setIsPlaying(false);
-        return;
-      }
-    }
+    let next = currentIndex + 1;
+    if (isShuffle) next = Math.floor(Math.random() * queue.length);
+    if (next >= queue.length) next = isRepeat ? 0 : -1;
 
-    loadAndPlay(queue[nextIndex], nextIndex);
+    if (next >= 0) loadAndPlay(queue[next], next);
+    else setIsPlaying(false);
   };
 
   const playPrev = async () => {
-    if (queue.length === 0) return;
+    if (queue.length === 0 || isTransitioningRef.current) return;
 
-    // flush current play before moving to prev
-    if (currentSong) {
-      try {
-        await flushCurrentPlay("prev");
-      } catch (e) {
-        console.error("Error flushing play before prev:", e);
-      }
+    try {
+      await flushCurrentPlay();
+    } catch (e) {
+      console.warn(e);
     }
 
-    let prevIndex = currentIndex - 1;
-    if (prevIndex < 0) {
-      if (isRepeat) prevIndex = queue.length - 1;
-      else return;
-    }
-    loadAndPlay(queue[prevIndex], prevIndex);
+    let prev = currentIndex - 1;
+    if (prev < 0) prev = isRepeat ? queue.length - 1 : 0;
+
+    loadAndPlay(queue[prev], prev);
   };
 
-  // Add to queue (avoid duplicates)
+  const setQueueAndPlay = (newQueue, startIndex = 0) => {
+    setQueue(newQueue);
+    setCurrentIndex(startIndex);
+    loadAndPlay(newQueue[startIndex], startIndex);
+  };
+
   const addToQueue = (song) => {
     if (!song) return;
     const id = song.song_id || song.id;
-    setQueue((prev) => {
-      if (prev.some((s) => (s.song_id || s.id) === id)) return prev;
-      return [...prev, song];
-    });
+
+    setQueue((prev) =>
+      prev.some((s) => (s.song_id || s.id) === id) ? prev : [...prev, song],
+    );
   };
 
-  // Remove from queue by id
   const removeFromQueue = (songId) => {
     const id = songId?.song_id || songId;
     setQueue((prev) => prev.filter((s) => (s.song_id || s.id) !== id));
-    // adjust currentIndex if needed
-    setCurrentIndex((prevIndex) => {
-      const idx = queue.findIndex((s) => (s.song_id || s.id) === id);
-      if (idx === -1) return prevIndex;
-      if (idx < prevIndex) return Math.max(prevIndex - 1, 0);
-      if (idx === prevIndex)
-        return Math.min(prevIndex, Math.max(queue.length - 2, -1));
-      return prevIndex;
-    });
   };
 
+  const closePlayer = async () => {
+    const audio = audioRef.current;
+
+    if (audio) {
+      try {
+        await flushCurrentPlay();
+      } catch (e) {
+        console.warn(e);
+      }
+
+      audio.pause();
+      audio.src = "";
+      audio.currentTime = 0;
+
+      if (audio._objectUrl) {
+        URL.revokeObjectURL(audio._objectUrl);
+        audio._objectUrl = null;
+      }
+    }
+
+    setCurrentSong(null);
+    setIsPlaying(false);
+    setQueue([]);
+    setCurrentIndex(-1);
+  };
+
+  // ================== ENDED ==================
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     const onEnded = async () => {
-      // When song ends, record play using accumulated seconds or audio.currentTime
-      try {
-        const durationPlayed = Math.floor(
-          Math.max(playedSecondsRef.current || 0, audio.currentTime || 0),
-        );
-        const songId = currentSong?.song_id || currentSong?.id;
-        if (songId && durationPlayed >= 5) {
-          await recordPlayToServer({
-            songId,
-            durationPlayed,
-            source: "ended",
-            deviceType: "web",
-          });
-        }
-      } catch (err) {
-        console.error("Error recording play on ended:", err);
-      } finally {
-        // proceed to next track
+      const songId = currentSong?.song_id || currentSong?.id;
+      if (!songId) {
         playNext();
+        return;
       }
-    };
 
-    const onTimeUpdate = () => {
-      const t = audio.currentTime || 0;
-      const delta = t - (lastAudioTimeRef.current || 0);
-      if (delta > 0 && delta < 10) playedSecondsRef.current += delta;
-      lastAudioTimeRef.current = t;
+      const now = Date.now();
+      if (
+        lastRecordedRef.current.songId === songId &&
+        now - lastRecordedRef.current.timestamp < 15000
+      ) {
+        playNext();
+        return;
+      }
+
+      let duration = Math.floor(audio.currentTime || audio.duration || 0);
+      if (duration > 10000) duration = Math.floor(duration / 1000);
+      if (duration >= 5) {
+        await recordPlayToServer(songId, duration);
+      }
+
+      playNext();
     };
 
     audio.addEventListener("ended", onEnded);
-    audio.addEventListener("timeupdate", onTimeUpdate);
+    return () => audio.removeEventListener("ended", onEnded);
+  }, [currentSong, playNext, recordPlayToServer]);
 
-    return () => {
-      audio.removeEventListener("ended", onEnded);
-      audio.removeEventListener("timeupdate", onTimeUpdate);
-    };
-  }, [
-    queue,
-    currentIndex,
-    isShuffle,
-    isRepeat,
-    currentSong,
-    playNext,
-    recordPlayToServer,
-  ]);
-
+  // tab hidden -> flush
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
-
-  // Use sendBeacon on unload as a last-resort fallback
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (!currentSong) return;
-      const durationPlayed = Math.floor(playedSecondsRef.current || 0);
-      if (durationPlayed < 5) return;
-      try {
-        const url = `${BASE_URL}/songs/${currentSong.song_id || currentSong.id}/play`;
-        const payload = JSON.stringify({
-          duration_played: durationPlayed,
-          source: "unload",
-        });
-        navigator.sendBeacon(url, payload);
-      } catch (e) {
-        // ignore
+    const onHidden = () => {
+      if (document.hidden) {
+        flushCurrentPlay();
       }
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, [flushCurrentPlay]);
+
+  useEffect(() => {
+    const handle = () => {
+      const audio = audioRef.current;
+      const songId = currentSong?.song_id || currentSong?.id;
+
+      if (!songId) return;
+
+      let duration = Math.floor(audio.currentTime || 0);
+      if (duration > 10000) duration = Math.floor(duration / 1000);
+      if (duration < 5) return;
+
+      const url = `${BASE_URL}/songs/${songId}/play`;
+      const payload = JSON.stringify({ duration_played: duration });
+      const blob = new Blob([payload], { type: "application/json" });
+      try {
+        navigator.sendBeacon(url, blob);
+      } catch (e) {
+        // fallback: fire-and-forget fetch with keepalive
+        try {
+          fetch(url, {
+            method: "POST",
+            body: payload,
+            headers: { "Content-Type": "application/json" },
+            keepalive: true,
+          }).catch(() => {});
+        } catch (err) {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handle);
+    return () => window.removeEventListener("beforeunload", handle);
   }, [currentSong]);
+
+  // volume sync
+  useEffect(() => {
+    audioRef.current.volume = volume;
+  }, [volume]);
 
   return (
     <PlayerContext.Provider
@@ -361,19 +370,17 @@ export const PlayerProvider = ({ children }) => {
         volume,
         setVolume,
         isShuffle,
-        toggleShuffle: () => setIsShuffle((prev) => !prev),
+        toggleShuffle: () => setIsShuffle((p) => !p),
         isRepeat,
-        toggleRepeat: () => setIsRepeat((prev) => !prev),
+        toggleRepeat: () => setIsRepeat((p) => !p),
         playSong,
         togglePlayPause,
         playNext,
         playPrev,
         addToQueue,
         removeFromQueue,
-        setQueueAndPlay: (songs, startIndex = 0) => {
-          setQueue(songs);
-          loadAndPlay(songs[startIndex], startIndex);
-        },
+        setQueueAndPlay,
+        closePlayer,
       }}
     >
       {children}

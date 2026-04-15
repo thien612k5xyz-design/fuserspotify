@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useParams } from "react-router-dom";
 import { PlayerContext } from "../context/PlayerContext";
 import { albumAPI, songAPI } from "../services/api";
-import { Play, MoreHorizontal } from "lucide-react";
+import { Play, MoreHorizontal, Plus } from "lucide-react";
 import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
 import "./AlbumDetail.css";
 
 const AlbumDetail = () => {
   const { id } = useParams();
-  const { playSong, currentSong, isPlaying } = React.useContext(PlayerContext);
+  const { playSong, currentSong, isPlaying, addToQueue, setQueueAndPlay } =
+    useContext(PlayerContext);
 
   const [album, setAlbum] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,27 +25,25 @@ const AlbumDetail = () => {
           const release_year = data.release_date
             ? new Date(data.release_date).getFullYear()
             : undefined;
-
           setAlbum({ ...data, release_year });
-        } else {
-          setAlbum(null);
         }
       } catch (err) {
         console.error("Fetch album lỗi:", err);
-        setAlbum(null);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchAlbum();
   }, [id]);
 
+  const handlePlayAlbum = () => {
+    if (!album?.songs?.length) return;
+    setQueueAndPlay(album.songs, 0);
+  };
+
   const handlePlaySong = async (song) => {
     if (!song?.song_id) return;
-
     try {
-      // Lấy đầy đủ thông tin bài hát (file_url, ...)
       const res = await songAPI.getSongById(song.song_id);
       if (res?.success && res.data) {
         playSong(res.data);
@@ -55,6 +54,10 @@ const AlbumDetail = () => {
       console.error("Lỗi lấy chi tiết bài hát:", err);
       playSong(song);
     }
+  };
+
+  const handleAddToQueue = (song) => {
+    if (addToQueue && song) addToQueue(song);
   };
 
   if (isLoading)
@@ -79,13 +82,9 @@ const AlbumDetail = () => {
       </div>
 
       <div className="album-content">
+        {/* Nút Play*/}
         <div className="album-actions">
-          <button
-            className="btn-play-album"
-            onClick={() =>
-              album.songs?.length > 0 && handlePlaySong(album.songs[0])
-            }
-          >
+          <button className="btn-play-album" onClick={handlePlayAlbum}>
             <Play size={28} fill="currentColor" />
           </button>
         </div>
@@ -118,8 +117,23 @@ const AlbumDetail = () => {
                   <div className="song-artist">{album.artist?.name}</div>
                 </div>
 
-                <div className="song-actions">
+                <div
+                  className="song-actions"
+                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                >
                   <span>{song.duration_formatted}</span>
+
+                  <button
+                    className="hover-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddToQueue(song);
+                    }}
+                    title="Thêm vào hàng đợi"
+                  >
+                    <Plus size={20} />
+                  </button>
+
                   <button
                     className="hover-btn"
                     onClick={(e) => {

@@ -9,6 +9,7 @@ import {
   Shuffle,
   Repeat,
   ListMusic,
+  X,
 } from "lucide-react";
 import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "./LikeButton";
@@ -24,6 +25,7 @@ const formatTime = (time) => {
 
 export const MusicPlayer = () => {
   const navigate = useNavigate();
+
   const {
     audioRef,
     currentSong,
@@ -37,6 +39,7 @@ export const MusicPlayer = () => {
     toggleRepeat,
     playNext,
     playPrev,
+    closePlayer,
   } = useContext(PlayerContext);
 
   const [currentTime, setCurrentTime] = useState(0);
@@ -46,18 +49,18 @@ export const MusicPlayer = () => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onLoadedMetadata = () => setDuration(audio.duration || 0);
-    const onEnded = () => playNext();
+    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handleLoadedMetadata = () => setDuration(audio.duration || 0);
+    const handleEnded = () => playNext();
 
-    audio.addEventListener("timeupdate", onTimeUpdate);
-    audio.addEventListener("loadedmetadata", onLoadedMetadata);
-    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("ended", handleEnded);
 
     return () => {
-      audio.removeEventListener("timeupdate", onTimeUpdate);
-      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
-      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("ended", handleEnded);
     };
   }, [audioRef, playNext]);
 
@@ -74,11 +77,15 @@ export const MusicPlayer = () => {
     setVolume(v);
   };
 
+  const handleClosePlayer = () => {
+    closePlayer();
+  };
+
   if (!currentSong) return null;
 
   return (
     <div className="music-player">
-      {/* Thông tin bài hát */}
+      {/* LEFT */}
       <div className="player-left">
         <img
           src={currentSong.cover_url || currentSong.coverUrl}
@@ -100,7 +107,9 @@ export const MusicPlayer = () => {
           <p
             onClick={() =>
               navigate(
-                `/artist/${currentSong.artist?.artist_id || currentSong.artist_id}`,
+                `/artist/${
+                  currentSong.artist?.artist_id || currentSong.artist_id
+                }`,
               )
             }
           >
@@ -118,7 +127,7 @@ export const MusicPlayer = () => {
         </div>
       </div>
 
-      {/* Điều khiển nhạc */}
+      {/* CENTER */}
       <div className="player-center">
         <div className="control-buttons">
           <button
@@ -166,14 +175,14 @@ export const MusicPlayer = () => {
         </div>
       </div>
 
-      {/* Âm lượng */}
+      {/* RIGHT */}
       <div className="player-right">
         <button className="btn-icon" onClick={() => navigate("/queue")}>
           <ListMusic size={20} />
         </button>
 
         <div className="volume-control">
-          <Volume2 size={20} className="btn-icon" />
+          <Volume2 size={20} />
           <input
             type="range"
             min="0"
@@ -184,6 +193,15 @@ export const MusicPlayer = () => {
             className="volume-slider"
           />
         </div>
+
+        {/* NÚT X  */}
+        <button
+          className="close-player-btn"
+          onClick={handleClosePlayer}
+          title="Đóng trình phát"
+        >
+          <X size={22} />
+        </button>
       </div>
     </div>
   );

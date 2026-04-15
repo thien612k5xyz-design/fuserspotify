@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { playlistAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
+import { AuthContext } from "../context/AuthContext";
 import { LikeButton } from "../components/LikeButton";
 import { Music, Play, Trash2 } from "lucide-react";
 
@@ -9,13 +10,19 @@ const PlaylistDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // Lấy playSong từ PlayerContext
-  const { playSong } = useContext(PlayerContext);
+  // Lấy playSong và setQueueAndPlay từ PlayerContext
+  const { playSong, setQueueAndPlay } = useContext(PlayerContext);
+  const { user } = useContext(AuthContext);
 
   const [playlist, setPlaylist] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
     const fetchDetail = async () => {
       try {
         const res = await playlistAPI.getPlaylistById(id);
@@ -28,11 +35,12 @@ const PlaylistDetail = () => {
     };
 
     if (id) fetchDetail();
-  }, [id]);
+  }, [id, user, navigate]);
 
   const handleRemoveSong = async (songId, e) => {
     e.stopPropagation();
     if (!window.confirm("Xóa bài này khỏi playlist?")) return;
+
     try {
       await playlistAPI.removeSongFromPlaylist(id, songId);
       setPlaylist((prev) => ({
@@ -50,6 +58,7 @@ const PlaylistDetail = () => {
       !window.confirm("Bạn có chắc chắn muốn xóa toàn bộ playlist này không?")
     )
       return;
+
     try {
       await playlistAPI.deletePlaylist(id);
       navigate("/my-playlists");
@@ -112,15 +121,12 @@ const PlaylistDetail = () => {
           >
             Playlist
           </p>
-
           <h1 style={{ fontSize: "72px", margin: "10px 0", fontWeight: "900" }}>
             {playlist.name}
           </h1>
-
           <p style={{ margin: "0 0 10px 0", color: "#b3b3b3" }}>
             {playlist.description}
           </p>
-
           <div
             style={{
               display: "flex",
@@ -150,7 +156,7 @@ const PlaylistDetail = () => {
       >
         {playlist.songs?.length > 0 && (
           <button
-            onClick={() => playSong(playlist.songs[0])}
+            onClick={() => setQueueAndPlay(playlist.songs, 0)}
             style={{
               width: "56px",
               height: "56px",

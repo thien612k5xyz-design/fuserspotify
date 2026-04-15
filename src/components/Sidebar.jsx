@@ -1,6 +1,7 @@
 import React, { useContext, useState } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { PlayerContext } from "../context/PlayerContext";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 import {
   Home,
@@ -18,6 +19,7 @@ import "./Sidebar.css";
 
 export const Sidebar = () => {
   const { user, logout, loading } = useContext(AuthContext);
+  const { closePlayer } = useContext(PlayerContext);
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -25,12 +27,18 @@ export const Sidebar = () => {
     try {
       await logout();
     } catch (err) {}
+
+    try {
+      await closePlayer();
+    } catch (e) {}
+
     navigate("/");
   };
 
   return (
     <div className="sidebar">
       <div className="sidebar-logo">Spotify</div>
+
       <nav className="sidebar-nav">
         <NavLink
           to="/"
@@ -40,6 +48,7 @@ export const Sidebar = () => {
         >
           <Home size={24} /> Trang chủ
         </NavLink>
+
         <NavLink
           to="/search"
           className={({ isActive }) =>
@@ -48,6 +57,7 @@ export const Sidebar = () => {
         >
           <Search size={24} /> Tìm kiếm
         </NavLink>
+
         <NavLink
           to="/library"
           className={({ isActive }) =>
@@ -68,6 +78,7 @@ export const Sidebar = () => {
             >
               <BarChart3 size={24} /> Thống kê cá nhân
             </NavLink>
+
             <NavLink
               to="/profile"
               className={({ isActive }) =>
@@ -112,24 +123,47 @@ export const Sidebar = () => {
           </Link>
         )}
 
-        <NavLink
-          to="/liked"
-          className={({ isActive }) =>
-            isActive ? "nav-item active" : "nav-item"
-          }
-        >
-          <Heart size={24} /> Bài hát đã thích
-        </NavLink>
-        <NavLink
-          to="/my-playlists"
-          className={({ isActive }) =>
-            isActive ? "nav-item active" : "nav-item"
-          }
-        >
-          <ListMusic size={24} /> Playlist của tôi
-        </NavLink>
+        {/* Bài hát đã thích */}
+        {user ? (
+          <NavLink
+            to="/liked"
+            className={({ isActive }) =>
+              isActive ? "nav-item active" : "nav-item"
+            }
+          >
+            <Heart size={24} /> Bài hát đã thích
+          </NavLink>
+        ) : (
+          <Link
+            to="/login"
+            className="nav-item"
+            title="Đăng nhập để xem bài hát đã thích"
+          >
+            <Heart size={24} /> Bài hát đã thích
+          </Link>
+        )}
 
-        {/* NGHỆ SĨ ĐÃ FOLLOW (Chỉ hiện khi đã đăng nhập) */}
+        {/* Playlist của tôi */}
+        {user ? (
+          <NavLink
+            to="/my-playlists"
+            className={({ isActive }) =>
+              isActive ? "nav-item active" : "nav-item"
+            }
+          >
+            <ListMusic size={24} /> Playlist của tôi
+          </NavLink>
+        ) : (
+          <Link
+            to="/login"
+            className="nav-item"
+            title="Đăng nhập để xem playlist của bạn"
+          >
+            <ListMusic size={24} /> Playlist của tôi
+          </Link>
+        )}
+
+        {/* NGHỆ SĨ ĐÃ FOLLOW */}
         {!loading && user && (
           <NavLink
             to="/followed-artists"
@@ -143,6 +177,8 @@ export const Sidebar = () => {
       </nav>
 
       <div className="sidebar-divider" />
+
+      {/* Khối Footer */}
       <div className="sidebar-footer">
         {loading ? (
           <div className="user-info">
@@ -167,7 +203,6 @@ export const Sidebar = () => {
         )}
       </div>
 
-      {/* Modal chỉ mount khi đã đăng nhập */}
       {user && (
         <CreatePlaylistModal
           isOpen={isModalOpen}
@@ -177,3 +212,5 @@ export const Sidebar = () => {
     </div>
   );
 };
+
+export default Sidebar;

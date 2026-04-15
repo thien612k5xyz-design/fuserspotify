@@ -24,17 +24,19 @@ export const PlayerProvider = ({ children }) => {
   const isTransitioningRef = useRef(false);
   const hasRecordedInitialRef = useRef(false);
 
-  const { token } = React.useContext(AuthContext);
+  // kiểm tra trạng thái đăng nhập
+  const { user } = React.useContext(AuthContext);
+
+  // Lấy token trực tiếp từ localStorage khi cần stream
+  const getToken = () => localStorage.getItem("token");
 
   const getStreamUrl = (songId) => `${BASE_URL}/songs/${songId}/stream`;
 
   const recordPlayToServer = useCallback(async (songId, durationPlayed) => {
     if (!songId) return;
-
     let dp = Number(durationPlayed) || 0;
     if (dp > 10000) dp = Math.floor(dp / 1000);
     dp = Math.floor(dp);
-
     if (dp < 5) return;
 
     const now = Date.now();
@@ -60,15 +62,35 @@ export const PlayerProvider = ({ children }) => {
     const audio = audioRef.current;
     const songId = currentSong?.song_id || currentSong?.id;
     if (!songId || !audio) return;
-
     let durationPlayed = Math.floor(audio.currentTime || 0);
     if (durationPlayed > 10000)
       durationPlayed = Math.floor(durationPlayed / 1000);
-
     if (durationPlayed >= 5) {
       await recordPlayToServer(songId, durationPlayed);
     }
   }, [currentSong, recordPlayToServer]);
+
+  const [loginToast, setLoginToast] = useState(null);
+  const loginToastTimeoutRef = useRef(null);
+
+  const showLoginToast = (message = "Bạn phải đăng nhập để nghe nhạc") => {
+    if (loginToastTimeoutRef.current) {
+      clearTimeout(loginToastTimeoutRef.current);
+    }
+    setLoginToast(message);
+    loginToastTimeoutRef.current = setTimeout(() => {
+      setLoginToast(null);
+    }, 3000);
+  };
+
+  // Helper: check auth before playing
+  const ensureAuthenticatedForPlay = () => {
+    if (!user) {
+      showLoginToast();
+      return false;
+    }
+    return true;
+  };
 
   const loadAndPlay = async (song, index = -1) => {
     if (!song || isTransitioningRef.current) return;
@@ -100,7 +122,9 @@ export const PlayerProvider = ({ children }) => {
       audio.volume = volume;
 
       let played = false;
+      const token = getToken();
 
+      // Try streaming
       if (fullSong.song_id && token) {
         try {
           const res = await fetch(getStreamUrl(fullSong.song_id), {
@@ -111,7 +135,6 @@ export const PlayerProvider = ({ children }) => {
             const objectUrl = URL.createObjectURL(blob);
             audio._objectUrl = objectUrl;
             audio.src = objectUrl;
-
             await new Promise((r) => setTimeout(r, 30));
             await audio.play();
             setIsPlaying(true);
@@ -124,13 +147,65 @@ export const PlayerProvider = ({ children }) => {
         }
       }
 
+      // Fallback: handle file_url
       if (!played && fullSong.file_url) {
         try {
-          audio.src = fullSong.file_url;
-          await new Promise((r) => setTimeout(r, 30));
-          await audio.play();
-          setIsPlaying(true);
-          played = true;
+          let audioUrl = fullSong.file_url;
+          const isAbsolute = /^https?:\/\//i.test(audioUrl);
+          if (!isAbsolute) {
+            try {
+              const base = new URL(BASE_URL);
+              const hostBase = base.origin;
+              audioUrl = new URL(audioUrl, hostBase).toString();
+            } catch (err) {
+              // Fallback string concat if URL constructor fails
+              const hostUrl = BASE_URL.endsWith("/")
+                ? BASE_URL.slice(0, -1)
+                : BASE_URL;
+              const cleanPath = audioUrl.startsWith("/")
+                ? audioUrl
+                : `/${audioUrl}`;
+              audioUrl = `${hostUrl}${cleanPath}`;
+            }
+          }
+
+          // If token exists, try fetching blob with Authorization (private files)
+          if (token) {
+            try {
+              const res = await fetch(audioUrl, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (res.ok) {
+                const blob = await res.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                audio._objectUrl = objectUrl;
+                audio.src = objectUrl;
+                await new Promise((r) => setTimeout(r, 30));
+                await audio.play();
+                setIsPlaying(true);
+                played = true;
+              } else {
+                console.warn(
+                  "Fallback fetch failed",
+                  res.status,
+                  res.statusText,
+                );
+              }
+            } catch (e) {
+              console.warn("Fallback fetch error", e);
+            }
+          }
+          if (!played) {
+            try {
+              audio.src = audioUrl;
+              await new Promise((r) => setTimeout(r, 30));
+              await audio.play();
+              setIsPlaying(true);
+              played = true;
+            } catch (e) {
+              console.warn("Fallback direct play error", e);
+            }
+          }
         } catch (e) {
           console.warn("Fallback play error", e);
         }
@@ -150,14 +225,17 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
+  // Public API: playSong
   const playSong = (song) => {
-    if (!song) return;
+    if (!song) return false;
+    if (!ensureAuthenticatedForPlay()) return false;
+
     const id = song.song_id || song.id;
     const currentId = currentSong?.song_id || currentSong?.id;
 
     if (id === currentId) {
       togglePlayPause();
-      return;
+      return true;
     }
 
     if (queue.length === 0) {
@@ -166,11 +244,17 @@ export const PlayerProvider = ({ children }) => {
     }
 
     loadAndPlay(song);
+    return true;
   };
 
   const togglePlayPause = async () => {
     const audio = audioRef.current;
     if (!audio.src) return;
+
+    if (!user) {
+      showLoginToast();
+      return;
+    }
 
     if (audio.paused) {
       try {
@@ -202,7 +286,6 @@ export const PlayerProvider = ({ children }) => {
     let next = currentIndex + 1;
     if (isShuffle) next = Math.floor(Math.random() * queue.length);
     if (next >= queue.length) next = isRepeat ? 0 : -1;
-
     if (next >= 0) loadAndPlay(queue[next], next);
     else setIsPlaying(false);
   };
@@ -217,14 +300,18 @@ export const PlayerProvider = ({ children }) => {
 
     let prev = currentIndex - 1;
     if (prev < 0) prev = isRepeat ? queue.length - 1 : 0;
-
     loadAndPlay(queue[prev], prev);
   };
 
+  // setQueueAndPlay should also check auth
   const setQueueAndPlay = (newQueue, startIndex = 0) => {
+    if (!ensureAuthenticatedForPlay()) return false;
+    if (!Array.isArray(newQueue) || newQueue.length === 0) return false;
+
     setQueue(newQueue);
     setCurrentIndex(startIndex);
     loadAndPlay(newQueue[startIndex], startIndex);
+    return true;
   };
 
   const addToQueue = (song) => {
@@ -256,6 +343,7 @@ export const PlayerProvider = ({ children }) => {
         audio._objectUrl = null;
       }
     }
+
     setCurrentSong(null);
     setIsPlaying(false);
     setQueue([]);
@@ -270,7 +358,6 @@ export const PlayerProvider = ({ children }) => {
       if (hasRecordedInitialRef.current) return;
       const songId = currentSong?.song_id || currentSong?.id;
       if (!songId) return;
-
       let duration = Math.floor(audio.currentTime || 0);
       if (duration >= 5) {
         hasRecordedInitialRef.current = true;
@@ -304,7 +391,6 @@ export const PlayerProvider = ({ children }) => {
 
       let duration = Math.floor(audio.currentTime || audio.duration || 0);
       if (duration > 10000) duration = Math.floor(duration / 1000);
-
       if (duration >= 5) {
         await recordPlayToServer(songId, duration);
       }
@@ -331,15 +417,12 @@ export const PlayerProvider = ({ children }) => {
       const audio = audioRef.current;
       const songId = currentSong?.song_id || currentSong?.id;
       if (!songId) return;
-
       let duration = Math.floor(audio.currentTime || 0);
       if (duration > 10000) duration = Math.floor(duration / 1000);
       if (duration < 5) return;
-
       const url = `${BASE_URL}/songs/${songId}/play`;
       const payload = JSON.stringify({ duration_played: duration });
       const blob = new Blob([payload], { type: "application/json" });
-
       try {
         navigator.sendBeacon(url, blob);
       } catch (e) {
@@ -387,6 +470,55 @@ export const PlayerProvider = ({ children }) => {
       }}
     >
       {children}
+
+      {/* Login-required toast rendered inside provider so any component can trigger it via playSong/setQueueAndPlay */}
+      {loginToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "120px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#ef4444",
+            color: "#000",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            fontWeight: "bold",
+            fontSize: "15px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            animation: "fadeIn 0.18s ease-in-out",
+          }}
+        >
+          <div
+            style={{
+              background: "#000",
+              color: "#ef4444",
+              borderRadius: "50%",
+              width: "20px",
+              height: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "12px",
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </div>
+          {loginToast}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </PlayerContext.Provider>
   );
 };

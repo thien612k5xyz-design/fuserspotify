@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { songAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
 import { LikeButton } from "../components/LikeButton";
 import { Play, Plus } from "lucide-react";
+import { AuthContext } from "../context/AuthContext";
 
 const Library = () => {
   const [songs, setSongs] = useState([]);
@@ -13,12 +15,16 @@ const Library = () => {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State quản lý thông báo (Toast)
+  // State quản lý thông báo
   const [toastMessage, setToastMessage] = useState(null);
   const toastTimeoutRef = useRef(null);
 
   // Lấy playSong và addToQueue từ PlayerContext
   const { playSong, addToQueue } = useContext(PlayerContext);
+
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const ICON_SIZE = 36; // px
 
   const fetchLibrary = async (currentPage) => {
     setIsLoading(true);
@@ -59,6 +65,11 @@ const Library = () => {
   const totalPages = pagination.totalPages || 1;
 
   const handlePlaySong = async (song) => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
     try {
       if (!song.file_url) {
         const res = await songAPI.getSongById(song.song_id);
@@ -75,10 +86,17 @@ const Library = () => {
 
   // thêm vào hàng đợi + Hiện thông báo
   const handleAddToQueue = (song) => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
     addToQueue(song);
+
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
     }
+
     setToastMessage(`Đã thêm "${song.title}" vào hàng đợi`);
     toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
@@ -109,6 +127,7 @@ const Library = () => {
                 <span style={{ width: "40px", color: "#b3b3b3" }}>
                   {(page - 1) * 20 + index + 1}
                 </span>
+
                 <img
                   src={song.cover_url}
                   alt=""
@@ -121,6 +140,7 @@ const Library = () => {
                   }}
                   onClick={() => handlePlaySong(song)}
                 />
+
                 <div
                   style={{ flex: 1, cursor: "pointer" }}
                   onClick={() => handlePlaySong(song)}
@@ -130,12 +150,47 @@ const Library = () => {
                     {song.artist?.name}
                   </p>
                 </div>
-                <LikeButton
-                  songId={song.song_id}
-                  initialIsLiked={song.is_liked}
-                  initialLikeCount={song.like_count ?? 0}
-                />
-                <span style={{ color: "#b3b3b3", marginLeft: "20px" }}>
+
+                {/* Like / Tim */}
+                {user ? (
+                  <div style={{ marginRight: 20 }}>
+                    <LikeButton
+                      songId={song.song_id}
+                      initialIsLiked={song.is_liked}
+                      initialLikeCount={song.like_count ?? 0}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => navigate("/login")}
+                    title="Đăng nhập để thích"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#b3b3b3",
+                      cursor: "pointer",
+                      padding: "6px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: ICON_SIZE,
+                      height: ICON_SIZE,
+                      borderRadius: "50%",
+                      transition: "background 0.15s, transform 0.08s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(255,255,255,0.04)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <span style={{ fontSize: 16, lineHeight: 1 }}>❤</span>
+                  </button>
+                )}
+
+                <span style={{ color: "#b3b3b3", marginLeft: "10px" }}>
                   {song.duration_formatted}
                 </span>
 
@@ -146,8 +201,8 @@ const Library = () => {
                     background: "#1db954",
                     border: "none",
                     borderRadius: "50%",
-                    width: "36px",
-                    height: "36px",
+                    width: ICON_SIZE,
+                    height: ICON_SIZE,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -166,8 +221,8 @@ const Library = () => {
                     background: "#282828",
                     border: "none",
                     borderRadius: "50%",
-                    width: "36px",
-                    height: "36px",
+                    width: ICON_SIZE,
+                    height: ICON_SIZE,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -207,6 +262,7 @@ const Library = () => {
             >
               ← Trước
             </button>
+
             <span
               style={{
                 padding: "10px 20px",
@@ -218,6 +274,7 @@ const Library = () => {
             >
               Trang {page} / {totalPages}
             </span>
+
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
@@ -277,7 +334,7 @@ const Library = () => {
         </div>
       )}
 
-      {/*css animation hiển thị*/}
+      {/* css animation hiển thị */}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translate(-50%, 20px); }

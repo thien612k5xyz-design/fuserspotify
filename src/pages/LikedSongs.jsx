@@ -1,17 +1,26 @@
 import React, { useState, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import { songAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
+import { AuthContext } from "../context/AuthContext";
 import { LikeButton } from "../components/LikeButton";
-import { Heart } from "lucide-react";
+import { Heart, Play } from "lucide-react";
 
 const LikedSongs = () => {
   const [likedSongs, setLikedSongs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Lấy playSong từ PlayerContext
-  const { playSong } = useContext(PlayerContext);
+  // Lấy playSong và setQueueAndPlay từ PlayerContext
+  const { playSong, setQueueAndPlay } = useContext(PlayerContext);
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
     const fetchLikedSongs = async () => {
       try {
         const res = await songAPI.getLikedSongs();
@@ -24,7 +33,7 @@ const LikedSongs = () => {
     };
 
     fetchLikedSongs();
-  }, []);
+  }, [user, navigate]);
 
   if (isLoading)
     return (
@@ -41,26 +50,66 @@ const LikedSongs = () => {
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           gap: "20px",
           marginBottom: "40px",
         }}
       >
+        {/* Bên trái: hình trái tim lớn và nút play đặt dưới hình, căn trái */}
         <div
           style={{
             width: "200px",
-            height: "200px",
-            background: "linear-gradient(135deg, #450af5, #c4efd9)",
             display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            borderRadius: "8px",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: "16px",
           }}
         >
-          <Heart size={80} fill="white" color="white" />
+          <div
+            style={{
+              width: "200px",
+              height: "200px",
+              background: "linear-gradient(135deg, #450af5, #c4efd9)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              borderRadius: "8px",
+            }}
+          >
+            <Heart size={80} fill="white" color="white" />
+          </div>
+
+          {/* Nút Play to nằm dưới hình trái tim, thẳng hàng với mép trái của hình */}
+          {likedSongs.length > 0 && (
+            <button
+              onClick={() => setQueueAndPlay(likedSongs, 0)}
+              style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "50%",
+                background: "#1db954",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                alignSelf: "flex-start",
+                marginLeft: 0,
+              }}
+              title="Phát tất cả"
+            >
+              <Play
+                size={28}
+                fill="black"
+                color="black"
+                style={{ marginLeft: "4px" }}
+              />
+            </button>
+          )}
         </div>
 
-        <div>
+        {/* Bên phải: thông tin tiêu đề và số lượng */}
+        <div style={{ flex: 1 }}>
           <p
             style={{
               margin: 0,
@@ -71,11 +120,9 @@ const LikedSongs = () => {
           >
             Playlist
           </p>
-
           <h1 style={{ fontSize: "72px", margin: "10px 0" }}>
             Bài hát đã thích
           </h1>
-
           <p style={{ margin: 0, color: "#b3b3b3" }}>
             {likedSongs.length} bài hát
           </p>
@@ -131,6 +178,7 @@ const LikedSongs = () => {
                   initialIsLiked={true}
                   initialLikeCount={song.like_count}
                 />
+
                 <span style={{ color: "#b3b3b3", fontSize: "14px" }}>
                   {song.duration_formatted}
                 </span>

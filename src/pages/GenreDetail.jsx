@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { genreAPI, songAPI } from "../services/api";
 import { PlayerContext } from "../context/PlayerContext";
+import { AuthContext } from "../context/AuthContext";
 import { LikeButton } from "../components/LikeButton";
 import { Play } from "lucide-react";
 
@@ -9,6 +10,8 @@ const GenreDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { playSong } = useContext(PlayerContext);
+  const { user } = useContext(AuthContext);
+
   const [songs, setSongs] = useState([]);
   const [genreName, setGenreName] = useState("Tuyển tập Thể loại");
   const [isLoading, setIsLoading] = useState(true);
@@ -18,10 +21,10 @@ const GenreDetail = () => {
       try {
         setIsLoading(true);
         const res = await genreAPI.getGenreSongs(id);
-
         if (res.success) {
           const fetchedSongs = res.data?.data || res.data || [];
           setSongs(fetchedSongs);
+
           if (res.data?.genre_name) {
             setGenreName(res.data.genre_name);
           } else if (res.data?.name) {
@@ -43,6 +46,7 @@ const GenreDetail = () => {
   }, [id]);
 
   const handlePlay = async (song) => {
+    if (!song) return;
     if (song.file_url) {
       playSong(song);
       return;
@@ -140,6 +144,7 @@ const GenreDetail = () => {
                       objectFit: "cover",
                     }}
                   />
+
                   <div
                     style={{
                       position: "absolute",
@@ -160,6 +165,7 @@ const GenreDetail = () => {
                     <Play fill="white" size={16} />
                   </div>
                 </div>
+
                 <div>
                   <h4
                     style={{ margin: 0, fontSize: "16px", fontWeight: "600" }}
@@ -177,14 +183,52 @@ const GenreDetail = () => {
                   </p>
                 </div>
               </div>
+
               <div
                 style={{ display: "flex", alignItems: "center", gap: "20px" }}
               >
-                <LikeButton
-                  songId={song.song_id}
-                  initialIsLiked={song.is_liked}
-                  initialLikeCount={song.like_count}
-                />
+                {/* Heart / Like button: nếu đã đăng nhập thì render LikeButton, nếu chưa thì render nút dẫn tới /login */}
+                {user ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <LikeButton
+                      songId={song.song_id}
+                      initialIsLiked={song.is_liked}
+                      initialLikeCount={song.like_count}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/login");
+                    }}
+                    title="Đăng nhập để thích"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#b3b3b3",
+                      cursor: "pointer",
+                      padding: "6px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      transition: "background 0.15s, transform 0.08s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(255,255,255,0.04)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <span style={{ fontSize: 16, lineHeight: 1 }}>❤</span>
+                  </button>
+                )}
+
                 <span
                   style={{
                     color: "#b3b3b3",

@@ -85,10 +85,22 @@ export const userAPI = {
 };
 
 export const songAPI = {
-  getSongs: ({ page = 1, limit = 20 } = {}) =>
-    fetchWithAuth(`/songs?page=${page}&limit=${limit}`, {
-      method: "GET",
-    }),
+  // options: { page, limit, genre_id, artist_id, search, sort }
+  getSongs: async (options = {}) => {
+    const { page = 1, limit = 20, genre_id, artist_id, search, sort } = options;
+    const params = new URLSearchParams();
+
+    params.append("page", page);
+    params.append("limit", limit);
+
+    if (genre_id !== undefined && genre_id !== null)
+      params.append("genre_id", genre_id);
+    if (artist_id !== undefined && artist_id !== null)
+      params.append("artist_id", artist_id);
+    if (search) params.append("search", search);
+    if (sort) params.append("sort", sort);
+    return fetchWithAuth(`/songs?${params.toString()}`, { method: "GET" });
+  },
 
   getSongById: (id) => fetchWithAuth(`/songs/${id}`, { method: "GET" }),
 
@@ -108,6 +120,7 @@ export const songAPI = {
     }),
 
   getRecentSongs: () => fetchWithAuth("/songs/recent", { method: "GET" }),
+
   stream: (id) => `${BASE_URL}/songs/${id}/stream`,
 };
 

@@ -24,14 +24,34 @@ export const PlayerProvider = ({ children }) => {
   const isTransitioningRef = useRef(false);
   const hasRecordedInitialRef = useRef(false);
 
-  // kiểm tra trạng thái đăng nhập
+  // login
+  const [loginToast, setLoginToast] = useState(null);
+  const loginToastTimeoutRef = useRef(null);
+
   const { user } = React.useContext(AuthContext);
 
-  // Lấy token trực tiếp từ localStorage khi cần stream
+  // token
   const getToken = () => localStorage.getItem("token");
-
   const getStreamUrl = (songId) => `${BASE_URL}/songs/${songId}/stream`;
 
+  const showLoginToast = (message = "Bạn phải đăng nhập để nghe nhạc") => {
+    if (loginToastTimeoutRef.current)
+      clearTimeout(loginToastTimeoutRef.current);
+    setLoginToast(message);
+    loginToastTimeoutRef.current = setTimeout(() => setLoginToast(null), 3000);
+  };
+
+  const ensureAuthenticatedForPlay = () => {
+    if (!user) {
+      showLoginToast();
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * Record play to server
+   */
   const recordPlayToServer = useCallback(async (songId, durationPlayed) => {
     if (!songId) return;
     let dp = Number(durationPlayed) || 0;
@@ -46,18 +66,18 @@ export const PlayerProvider = ({ children }) => {
     ) {
       return;
     }
-
     lastRecordedRef.current = { songId, timestamp: now };
 
     try {
-      await songAPI.recordPlay(songId, {
-        duration_played: dp,
-      });
+      await songAPI.recordPlay(songId, { duration_played: dp });
     } catch (err) {
       console.error("Ghi play lỗi:", err);
     }
   }, []);
 
+  /**
+   * Xóa bộ nhớ đệm bài hát hiện tại
+   */
   const flushCurrentPlay = useCallback(async () => {
     const audio = audioRef.current;
     const songId = currentSong?.song_id || currentSong?.id;
@@ -70,31 +90,27 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [currentSong, recordPlayToServer]);
 
-  const [loginToast, setLoginToast] = useState(null);
-  const loginToastTimeoutRef = useRef(null);
-
-  const showLoginToast = (message = "Bạn phải đăng nhập để nghe nhạc") => {
-    if (loginToastTimeoutRef.current) {
-      clearTimeout(loginToastTimeoutRef.current);
+  /**
+   *URL tuyệt đối từ BASE_URL + đường dẫn tương đối
+   */
+  const makeAbsoluteUrl = (maybePath) => {
+    if (!maybePath) return maybePath;
+    if (/^https?:\/\//i.test(maybePath)) return maybePath;
+    try {
+      const base = new URL(BASE_URL);
+      return new URL(maybePath, base.origin).toString();
+    } catch (err) {
+      const hostUrl = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
+      const cleanPath = maybePath.startsWith("/") ? maybePath : `/${maybePath}`;
+      return `${hostUrl}${cleanPath}`;
     }
-    setLoginToast(message);
-    loginToastTimeoutRef.current = setTimeout(() => {
-      setLoginToast(null);
-    }, 3000);
   };
 
-  // Helper: check auth before playing
-  const ensureAuthenticatedForPlay = () => {
-    if (!user) {
-      showLoginToast();
-      return false;
-    }
-    return true;
-  };
-
+  /**
+   * tải và phát bài hát
+   */
   const loadAndPlay = async (song, index = -1) => {
     if (!song || isTransitioningRef.current) return;
-
     isTransitioningRef.current = true;
     hasRecordedInitialRef.current = false;
 
@@ -124,8 +140,30 @@ export const PlayerProvider = ({ children }) => {
       let played = false;
       const token = getToken();
 
-      // Try streaming
-      if (fullSong.song_id && token) {
+      // các loại liên kết
+      const fileUrl = fullSong.file_url || "";
+      const isAbsoluteUrl = /^https?:\/\//i.test(fileUrl);
+      const isOurBackend =
+        fileUrl &&
+        (fileUrl.includes("localhost") ||
+          fileUrl.includes(BASE_URL) ||
+          !isAbsoluteUrl);
+      const isExternalLink = isAbsoluteUrl && !isOurBackend;
+
+      //  thử gán trực tiếp ngăn CORS
+      if (isExternalLink) {
+        try {
+          audio.src = fileUrl;
+          await new Promise((r) => setTimeout(r, 30));
+          await audio.play();
+          setIsPlaying(true);
+          played = true;
+        } catch (e) {
+          console.warn("Lỗi phát link ngoài trực tiếp:", e);
+        }
+      }
+
+      if (!played && fullSong.song_id && token) {
         try {
           const res = await fetch(getStreamUrl(fullSong.song_id), {
             headers: { Authorization: `Bearer ${token}` },
@@ -140,37 +178,19 @@ export const PlayerProvider = ({ children }) => {
             setIsPlaying(true);
             played = true;
           } else {
-            console.warn("Stream fetch failed", res.status, res.statusText);
+            console.warn("Luồng stream thất bại:", res.status, res.statusText);
           }
         } catch (e) {
-          console.warn("Stream fetch error", e);
+          console.warn("Lỗi kết nối khi stream:", e);
         }
       }
 
-      // Fallback: handle file_url
+      // STEP 3: Fallback - use static file_url (make absolute if needed) and assign directly
       if (!played && fullSong.file_url) {
         try {
-          let audioUrl = fullSong.file_url;
-          const isAbsolute = /^https?:\/\//i.test(audioUrl);
-          if (!isAbsolute) {
-            try {
-              const base = new URL(BASE_URL);
-              const hostBase = base.origin;
-              audioUrl = new URL(audioUrl, hostBase).toString();
-            } catch (err) {
-              // Fallback string concat if URL constructor fails
-              const hostUrl = BASE_URL.endsWith("/")
-                ? BASE_URL.slice(0, -1)
-                : BASE_URL;
-              const cleanPath = audioUrl.startsWith("/")
-                ? audioUrl
-                : `/${audioUrl}`;
-              audioUrl = `${hostUrl}${cleanPath}`;
-            }
-          }
+          const audioUrl = makeAbsoluteUrl(fullSong.file_url);
 
-          // If token exists, try fetching blob with Authorization (private files)
-          if (token) {
+          if (token && audioUrl.includes(new URL(BASE_URL).origin)) {
             try {
               const res = await fetch(audioUrl, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -195,19 +215,16 @@ export const PlayerProvider = ({ children }) => {
               console.warn("Fallback fetch error", e);
             }
           }
+
           if (!played) {
-            try {
-              audio.src = audioUrl;
-              await new Promise((r) => setTimeout(r, 30));
-              await audio.play();
-              setIsPlaying(true);
-              played = true;
-            } catch (e) {
-              console.warn("Fallback direct play error", e);
-            }
+            audio.src = audioUrl;
+            await new Promise((r) => setTimeout(r, 30));
+            await audio.play();
+            setIsPlaying(true);
+            played = true;
           }
         } catch (e) {
-          console.warn("Fallback play error", e);
+          console.warn("Lỗi fallback phát trực tiếp đường dẫn tĩnh:", e);
         }
       }
 
@@ -225,14 +242,15 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  // Public API: playSong
+  /**
+   * Public API: playSong
+   */
   const playSong = (song) => {
     if (!song) return false;
     if (!ensureAuthenticatedForPlay()) return false;
 
     const id = song.song_id || song.id;
     const currentId = currentSong?.song_id || currentSong?.id;
-
     if (id === currentId) {
       togglePlayPause();
       return true;
@@ -250,7 +268,6 @@ export const PlayerProvider = ({ children }) => {
   const togglePlayPause = async () => {
     const audio = audioRef.current;
     if (!audio.src) return;
-
     if (!user) {
       showLoginToast();
       return;
@@ -303,11 +320,9 @@ export const PlayerProvider = ({ children }) => {
     loadAndPlay(queue[prev], prev);
   };
 
-  // setQueueAndPlay should also check auth
   const setQueueAndPlay = (newQueue, startIndex = 0) => {
     if (!ensureAuthenticatedForPlay()) return false;
     if (!Array.isArray(newQueue) || newQueue.length === 0) return false;
-
     setQueue(newQueue);
     setCurrentIndex(startIndex);
     loadAndPlay(newQueue[startIndex], startIndex);
@@ -343,7 +358,6 @@ export const PlayerProvider = ({ children }) => {
         audio._objectUrl = null;
       }
     }
-
     setCurrentSong(null);
     setIsPlaying(false);
     setQueue([]);
@@ -413,16 +427,18 @@ export const PlayerProvider = ({ children }) => {
   }, [flushCurrentPlay]);
 
   useEffect(() => {
-    const handle = () => {
+    const handleBeforeUnload = () => {
       const audio = audioRef.current;
       const songId = currentSong?.song_id || currentSong?.id;
       if (!songId) return;
       let duration = Math.floor(audio.currentTime || 0);
       if (duration > 10000) duration = Math.floor(duration / 1000);
       if (duration < 5) return;
+
       const url = `${BASE_URL}/songs/${songId}/play`;
       const payload = JSON.stringify({ duration_played: duration });
       const blob = new Blob([payload], { type: "application/json" });
+
       try {
         navigator.sendBeacon(url, blob);
       } catch (e) {
@@ -437,8 +453,8 @@ export const PlayerProvider = ({ children }) => {
       }
     };
 
-    window.addEventListener("beforeunload", handle);
-    return () => window.removeEventListener("beforeunload", handle);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [currentSong]);
 
   useEffect(() => {
@@ -471,7 +487,6 @@ export const PlayerProvider = ({ children }) => {
     >
       {children}
 
-      {/* Login-required toast rendered inside provider so any component can trigger it via playSong/setQueueAndPlay */}
       {loginToast && (
         <div
           style={{

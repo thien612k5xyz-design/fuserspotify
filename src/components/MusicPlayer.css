@@ -1,8 +1,8 @@
 .music-player {
   position: fixed;
   bottom: 0;
-  left: 240px; 
-  width: calc(100% - 240px); 
+  left: 240px;
+  width: calc(100% - 240px);
   height: 100px;
   background-color: #09090b;
   border-top: 1px solid #1f2937;
@@ -13,11 +13,13 @@
   z-index: 1000;
 }
 
+/* KHUNG TRÁI */
 .player-left {
   display: flex;
   align-items: center;
   gap: 1rem;
   width: 30%;
+  min-width: 0;
 }
 
 .player-cover {
@@ -26,12 +28,24 @@
   border-radius: 4px;
   object-fit: cover;
   cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* KHU CHỮ ( */
+.song-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .song-info h4 {
   font-size: 14px;
   margin: 0;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .song-info h4:hover {
@@ -43,23 +57,32 @@
   color: #b3b3b3;
   margin: 0;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .song-info p:hover {
   text-decoration: underline;
 }
 
+/* DÀN NÚT TRÁI*/
 .player-actions {
   display: flex;
+  align-items: center;
   gap: 12px;
   margin-left: 10px;
+  flex-shrink: 0;
+  z-index: 10;
 }
 
+/* KHUNG GIỮA */
 .player-center {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 40%;
+  padding: 0 30px;
 }
 
 .control-buttons {
@@ -103,12 +126,14 @@
   accent-color: #1ed760;
 }
 
+/* KHUNG PHẢI */
 .player-right {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 1rem;
   width: 30%;
+  position: relative;
 }
 
 .volume-control {
@@ -117,7 +142,6 @@
   gap: 8px;
 }
 
-/* Thanh âm lượng */
 .volume-slider {
   width: 150px;
   height: 4px;
@@ -127,7 +151,6 @@
   accent-color: #1ed760;
 }
 
-/* Thumb cho Webkit (Chrome, Edge, Safari) */
 .volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
@@ -169,6 +192,9 @@
   border: none;
   color: #b3b3b3;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-icon:hover {
@@ -179,7 +205,6 @@
   color: #1ed760;
 }
 
-/* Nút đóng Music Player */
 .close-player-btn {
   background: transparent;
   border: none;
@@ -196,11 +221,4 @@
 .close-player-btn:hover {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.1);
-}
-
-.player-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  position: relative;
 }

@@ -24,14 +24,15 @@ export const PlayerProvider = ({ children }) => {
   const isTransitioningRef = useRef(false);
   const hasRecordedInitialRef = useRef(false);
 
-  // login
+  // login toast
   const [loginToast, setLoginToast] = useState(null);
   const loginToastTimeoutRef = useRef(null);
 
   const { user } = React.useContext(AuthContext);
 
-  // token
+  // token helper
   const getToken = () => localStorage.getItem("token");
+
   const getStreamUrl = (songId) => `${BASE_URL}/songs/${songId}/stream`;
 
   const showLoginToast = (message = "Bạn phải đăng nhập để nghe nhạc") => {
@@ -82,16 +83,18 @@ export const PlayerProvider = ({ children }) => {
     const audio = audioRef.current;
     const songId = currentSong?.song_id || currentSong?.id;
     if (!songId || !audio) return;
+
     let durationPlayed = Math.floor(audio.currentTime || 0);
     if (durationPlayed > 10000)
       durationPlayed = Math.floor(durationPlayed / 1000);
+
     if (durationPlayed >= 5) {
       await recordPlayToServer(songId, durationPlayed);
     }
   }, [currentSong, recordPlayToServer]);
 
   /**
-   *URL tuyệt đối từ BASE_URL + đường dẫn tương đối
+   * URL tuyệt đối từ BASE_URL + đường dẫn tương đối
    */
   const makeAbsoluteUrl = (maybePath) => {
     if (!maybePath) return maybePath;
@@ -107,7 +110,7 @@ export const PlayerProvider = ({ children }) => {
   };
 
   /**
-   * tải và phát bài hát
+   * Tải và phát bài hát
    */
   const loadAndPlay = async (song, index = -1) => {
     if (!song || isTransitioningRef.current) return;
@@ -122,7 +125,6 @@ export const PlayerProvider = ({ children }) => {
         const res = await songAPI.getSongById(fullSong.song_id);
         if (res?.success) fullSong = res.data;
       }
-
       setCurrentSong(fullSong);
       if (index >= 0) setCurrentIndex(index);
 
@@ -131,7 +133,6 @@ export const PlayerProvider = ({ children }) => {
         URL.revokeObjectURL(audio._objectUrl);
         audio._objectUrl = null;
       }
-
       audio.pause();
       audio.src = "";
       audio.currentTime = 0;
@@ -150,7 +151,7 @@ export const PlayerProvider = ({ children }) => {
           !isAbsoluteUrl);
       const isExternalLink = isAbsoluteUrl && !isOurBackend;
 
-      //  thử gán trực tiếp ngăn CORS
+      // Thử gán trực tiếp ngăn CORS
       if (isExternalLink) {
         try {
           audio.src = fileUrl;
@@ -163,33 +164,28 @@ export const PlayerProvider = ({ children }) => {
         }
       }
 
+      // 2. Stream bằng cách đính kèm token vào URL
       if (!played && fullSong.song_id && token) {
         try {
-          const res = await fetch(getStreamUrl(fullSong.song_id), {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const blob = await res.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            audio._objectUrl = objectUrl;
-            audio.src = objectUrl;
-            await new Promise((r) => setTimeout(r, 30));
-            await audio.play();
-            setIsPlaying(true);
-            played = true;
-          } else {
-            console.warn("Luồng stream thất bại:", res.status, res.statusText);
-          }
+          // Đính kèm token vào URL dạng query parameter
+          const streamUrlWithToken = `${getStreamUrl(fullSong.song_id)}?token=${token}`;
+
+          audio.src = streamUrlWithToken;
+
+          await new Promise((r) => setTimeout(r, 30));
+          await audio.play();
+
+          setIsPlaying(true);
+          played = true;
         } catch (e) {
-          console.warn("Lỗi kết nối khi stream:", e);
+          console.warn("Lỗi khi phát luồng stream trực tiếp:", e);
         }
       }
 
-      // STEP 3: Fallback - use static file_url (make absolute if needed) and assign directly
+      // 3. Fallback - use static file_url
       if (!played && fullSong.file_url) {
         try {
           const audioUrl = makeAbsoluteUrl(fullSong.file_url);
-
           if (token && audioUrl.includes(new URL(BASE_URL).origin)) {
             try {
               const res = await fetch(audioUrl, {
@@ -215,7 +211,6 @@ export const PlayerProvider = ({ children }) => {
               console.warn("Fallback fetch error", e);
             }
           }
-
           if (!played) {
             audio.src = audioUrl;
             await new Promise((r) => setTimeout(r, 30));
@@ -251,6 +246,7 @@ export const PlayerProvider = ({ children }) => {
 
     const id = song.song_id || song.id;
     const currentId = currentSong?.song_id || currentSong?.id;
+
     if (id === currentId) {
       togglePlayPause();
       return true;
@@ -260,7 +256,6 @@ export const PlayerProvider = ({ children }) => {
       setQueue([song]);
       setCurrentIndex(0);
     }
-
     loadAndPlay(song);
     return true;
   };
@@ -268,6 +263,7 @@ export const PlayerProvider = ({ children }) => {
   const togglePlayPause = async () => {
     const audio = audioRef.current;
     if (!audio.src) return;
+
     if (!user) {
       showLoginToast();
       return;
@@ -302,9 +298,20 @@ export const PlayerProvider = ({ children }) => {
 
     let next = currentIndex + 1;
     if (isShuffle) next = Math.floor(Math.random() * queue.length);
+
+    // Xử lý hết danh sách phát
     if (next >= queue.length) next = isRepeat ? 0 : -1;
-    if (next >= 0) loadAndPlay(queue[next], next);
-    else setIsPlaying(false);
+
+    if (next >= 0) {
+      loadAndPlay(queue[next], next);
+    } else {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+      setIsPlaying(false);
+    }
   };
 
   const playPrev = async () => {
@@ -314,7 +321,6 @@ export const PlayerProvider = ({ children }) => {
     } catch (e) {
       console.warn(e);
     }
-
     let prev = currentIndex - 1;
     if (prev < 0) prev = isRepeat ? queue.length - 1 : 0;
     loadAndPlay(queue[prev], prev);
@@ -372,6 +378,7 @@ export const PlayerProvider = ({ children }) => {
       if (hasRecordedInitialRef.current) return;
       const songId = currentSong?.song_id || currentSong?.id;
       if (!songId) return;
+
       let duration = Math.floor(audio.currentTime || 0);
       if (duration >= 5) {
         hasRecordedInitialRef.current = true;
@@ -408,7 +415,6 @@ export const PlayerProvider = ({ children }) => {
       if (duration >= 5) {
         await recordPlayToServer(songId, duration);
       }
-
       playNext();
     };
 
@@ -431,6 +437,7 @@ export const PlayerProvider = ({ children }) => {
       const audio = audioRef.current;
       const songId = currentSong?.song_id || currentSong?.id;
       if (!songId) return;
+
       let duration = Math.floor(audio.currentTime || 0);
       if (duration > 10000) duration = Math.floor(duration / 1000);
       if (duration < 5) return;
@@ -486,7 +493,6 @@ export const PlayerProvider = ({ children }) => {
       }}
     >
       {children}
-
       {loginToast && (
         <div
           style={{
@@ -527,7 +533,6 @@ export const PlayerProvider = ({ children }) => {
           {loginToast}
         </div>
       )}
-
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translate(-50%, 20px); }

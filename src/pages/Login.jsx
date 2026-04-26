@@ -1,11 +1,11 @@
 import React, { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import { authAPI } from "../services/api"; // Thêm import này
 
 const Login = () => {
-  const { login } = useContext(AuthContext);
+  const { login } = useContext(AuthContext); // Hàm login của Context (lưu token)
   const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -16,8 +16,20 @@ const Login = () => {
     setIsLoading(true);
     setErrorMsg("");
     try {
-      await login(email, password);
-      navigate("/");
+      // Gọi hàm login từ AuthContext (nó đã tự gọi API và lưu token rồi)
+      const res = await login(email, password);
+
+      // Đăng nhập thành công -> Phân luồng điều hướng luôn
+      if (res && res.data && res.data.user) {
+        if (res.data.user.role === "admin") {
+          navigate("/admin/dashboard"); // Admin về Dashboard
+        } else {
+          navigate("/"); // User về trang chủ
+        }
+      } else {
+        // Phòng hờ API trả về thiếu data
+        navigate("/");
+      }
     } catch (err) {
       setErrorMsg(
         err.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại Backend.",
@@ -40,7 +52,6 @@ const Login = () => {
         Đăng Nhập Spotify
       </h2>
 
-      {/* Hiển thị lỗi nếu có */}
       {errorMsg && (
         <p
           style={{ color: "#e91429", textAlign: "center", fontWeight: "bold" }}
@@ -104,7 +115,6 @@ const Login = () => {
           {isLoading ? "Đang xử lý..." : "Đăng nhập"}
         </button>
       </form>
-
       <p style={{ marginTop: "25px", textAlign: "center", color: "#b3b3b3" }}>
         Chưa có tài khoản?{" "}
         <Link
@@ -121,5 +131,4 @@ const Login = () => {
     </div>
   );
 };
-
 export default Login;

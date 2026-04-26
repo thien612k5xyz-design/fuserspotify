@@ -23,6 +23,11 @@ import SongPage from "./pages/SongPage";
 import FollowedArtists from "./pages/FollowedArtists";
 import "./App.css";
 
+import { AdminRoute } from "./components/AdminRoute";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminSongs from "./pages/admin/AdminSongs";
+import AdminUsers from "./pages/admin/AdminUsers";
+
 function App() {
   return (
     <AuthProvider>
@@ -32,6 +37,7 @@ function App() {
             <Sidebar />
             <main className="main-content">
               <Routes>
+                {/* === ROUTES NGƯỜI DÙNG === */}
                 <Route path="/" element={<Home />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/library" element={<Library />} />
@@ -50,6 +56,13 @@ function App() {
                 <Route path="/dashboard" element={<UserDashboard />} />
                 <Route path="/genre/:id" element={<GenreDetail />} />
                 <Route path="/followed-artists" element={<FollowedArtists />} />
+
+                {/* === ROUTES ADMIN === */}
+                <Route element={<AdminRoute />}>
+                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                  <Route path="/admin/songs" element={<AdminSongs />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                </Route>
               </Routes>
             </main>
             <MusicPlayer />

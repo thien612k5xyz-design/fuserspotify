@@ -23,11 +23,16 @@ import SongPage from "./pages/SongPage";
 import FollowedArtists from "./pages/FollowedArtists";
 import "./App.css";
 
+// === ADMIN ROUTES ===
 import { AdminRoute } from "./components/AdminRoute";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAnalyticsMusic from "./pages/admin/AdminAnalyticsMusic";
+import AdminAnalyticsUsers from "./pages/admin/AdminAnalyticsUsers";
+import AdminAnalyticsRevenue from "./pages/admin/AdminAnalyticsRevenue";
 import AdminSongs from "./pages/admin/AdminSongs";
+import AdminArtists from "./pages/admin/AdminArtists";
+import AdminAlbums from "./pages/admin/AdminAlbums";
 import AdminUsers from "./pages/admin/AdminUsers";
-
 function App() {
   return (
     <AuthProvider>
@@ -60,7 +65,21 @@ function App() {
                 {/* === ROUTES ADMIN === */}
                 <Route element={<AdminRoute />}>
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                  <Route
+                    path="/admin/analytics/music"
+                    element={<AdminAnalyticsMusic />}
+                  />
+                  <Route
+                    path="/admin/analytics/users"
+                    element={<AdminAnalyticsUsers />}
+                  />
+                  <Route
+                    path="/admin/analytics/revenue"
+                    element={<AdminAnalyticsRevenue />}
+                  />
                   <Route path="/admin/songs" element={<AdminSongs />} />
+                  <Route path="/admin/artists" element={<AdminArtists />} />
+                  <Route path="/admin/albums" element={<AdminAlbums />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
                 </Route>
               </Routes>
@@ -72,5 +91,4 @@ function App() {
     </AuthProvider>
   );
 }
-
 export default App;

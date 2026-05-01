@@ -1,44 +1,71 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
-import { adminAPI, genreAPI, artistAPI } from "../../services/api";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { adminAPI, genreAPI, songAPI } from "../../services/api";
 import {
   Search,
   Plus,
   Pencil,
   Trash2,
-  Upload,
-  X,
   ChevronLeft,
   ChevronRight,
   Music,
   CheckCircle,
+  Upload,
+  X,
 } from "lucide-react";
 
+const BASE_URL = "http://localhost:5000";
 const GREEN = "#1db954";
 const DIM = "#b3b3b3";
 
-// ── Toast ────────────────────────────────────────────────────────────────────
+/* ---------------- helpers ---------------- */
+
+const fmt = (n) => {
+  if (n === null || n === undefined) return "0";
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(0) + "K";
+  return String(n);
+};
+
+const getImageUrl = (url) => {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  const clean = url.replace(/\\/g, "/");
+  const finalUrl = clean.startsWith("/") ? clean : `/${clean}`;
+  return `${BASE_URL}${finalUrl}`;
+};
+
 const useToast = () => {
   const [toast, setToast] = useState(null);
-  const timerRef = useRef(null);
-  const show = (msg, type = "success") => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+  const t = useRef(null);
+  const show = useCallback((msg, type = "success") => {
+    clearTimeout(t.current);
     setToast({ msg, type });
-    timerRef.current = setTimeout(() => setToast(null), 3000);
-  };
+    t.current = setTimeout(() => setToast(null), 3000);
+  }, []);
   return { toast, show };
 };
 
-// ── Confirm Dialog ───────────────────────────────────────────────────────────
-const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
+const useDebounce = (val, delay = 400) => {
+  const [dv, setDv] = useState(val);
+  useEffect(() => {
+    const id = setTimeout(() => setDv(val), delay);
+    return () => clearTimeout(id);
+  }, [val, delay]);
+  return dv;
+};
+
+/* ---------------- Confirm dialog ---------------- */
+
+const Confirm = ({ message, onConfirm, onCancel }) => (
   <div
     style={{
       position: "fixed",
       inset: 0,
-      background: "rgba(0,0,0,0.7)",
+      background: "rgba(0,0,0,.7)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      zIndex: 1000,
+      zIndex: 300,
     }}
   >
     <div
@@ -84,79 +111,159 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
   </div>
 );
 
-// ── Song Modal (Create / Edit) ────────────────────────────────────────────────
+/* ---------------- Song Modal (create / edit) ---------------- */
+const MOODS = [
+  "happy",
+  "sad",
+  "energetic",
+  "chill",
+  "romantic",
+  "angry",
+  "melancholic",
+];
+const LANGS = [
+  { value: "vi", label: "Tiếng Việt" },
+  { value: "en", label: "English" },
+  { value: "ko", label: "한국어" },
+  { value: "jp", label: "日本語" },
+  { value: "other", label: "Khác" },
+];
+
 const SongModal = ({ song, genres, artists, onClose, onSaved }) => {
   const isEdit = !!song;
+
+  const safeDate = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      return new Date(dateStr).toISOString().split("T")[0];
+    } catch {
+      return "";
+    }
+  };
+
   const [form, setForm] = useState({
-    title: song?.title || "",
-    artist_id: song?.artist?.artist_id || "",
-    album_id: song?.album?.album_id || "",
-    genre_id: song?.genre?.genre_id || "",
-    duration: song?.duration || "",
-    release_date: song?.release_date ? song.release_date.split("T")[0] : "",
-    mood: song?.mood || "",
-    language: song?.language || "vi",
-    lyrics: song?.lyrics || "",
+    title: song?.title ?? "",
+    artist_id: song?.artist?.artist_id ?? song?.artist_id ?? "",
+    album_id: song?.album?.album_id ?? song?.album_id ?? "",
+    genre_id: song?.genre?.genre_id ?? song?.genre_id ?? "",
+    duration: song?.duration ?? "",
+    release_date: safeDate(song?.release_date),
+    mood: song?.mood ?? "",
+    language: song?.language ?? "vi",
+    lyrics: song?.lyrics ?? "",
   });
+
+  const [artistSearch, setArtistSearch] = useState(song?.artist?.name || "");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [albums, setAlbums] = useState([]);
   const [audioFile, setAudioFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const coverPreview = coverFile
-    ? URL.createObjectURL(coverFile)
-    : song?.cover_url || null;
 
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  useEffect(() => {
+    setForm({
+      title: song?.title ?? "",
+      artist_id: song?.artist?.artist_id ?? song?.artist_id ?? "",
+      album_id: song?.album?.album_id ?? song?.album_id ?? "",
+      genre_id: song?.genre?.genre_id ?? song?.genre_id ?? "",
+      duration: song?.duration ?? "",
+      release_date: safeDate(song?.release_date),
+      mood: song?.mood ?? "",
+      language: song?.language ?? "vi",
+      lyrics: song?.lyrics ?? "",
+    });
+    setArtistSearch(song?.artist?.name || "");
+  }, [song]);
+
+  useEffect(() => {
+    adminAPI.getAlbums({ limit: 1000 }).then((res) => {
+      if (res?.success) setAlbums(res.data);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (form.artist_id && form.album_id && albums.length > 0) {
+      const isMatch = albums.some(
+        (a) =>
+          a.album_id == form.album_id &&
+          (a.artist_id == form.artist_id ||
+            a.artist?.artist_id == form.artist_id),
+      );
+      if (!isMatch) {
+        setForm((f) => ({ ...f, album_id: "" }));
+      }
+    }
+  }, [form.artist_id, form.album_id, albums]);
+
+  const setField = (k) => (e) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const coverSrc = coverFile
+    ? URL.createObjectURL(coverFile)
+    : getImageUrl(song?.cover_url);
+
+  const filteredArtists = artists.filter((a) =>
+    a.name.toLowerCase().includes(artistSearch.toLowerCase()),
+  );
 
   const handleSubmit = async () => {
-    if (!form.title || !form.artist_id || !form.genre_id) {
-      setError("Vui lòng điền đầy đủ: Tên bài hát, Nghệ sĩ, Thể loại");
-      return;
-    }
-    if (!isEdit && !audioFile) {
-      setError("Vui lòng chọn file nhạc MP3");
-      return;
-    }
+    if (!form.title.trim()) return setError("Tên bài hát không được để trống");
+    if (!form.artist_id)
+      return setError("Vui lòng bấm chọn một Nghệ sĩ từ danh sách gợi ý");
+    if (!form.genre_id) return setError("Vui lòng chọn thể loại");
+    if (!isEdit && !audioFile) return setError("Vui lòng chọn file nhạc MP3");
+
     setLoading(true);
     setError("");
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => {
-        if (v !== "") fd.append(k, v);
-      });
+      fd.append("title", form.title.trim());
+      fd.append("artist_id", form.artist_id);
+      if (form.album_id) fd.append("album_id", form.album_id);
+      fd.append("genre_id", form.genre_id);
+      if (form.duration) fd.append("duration", form.duration);
+      if (form.release_date) fd.append("release_date", form.release_date);
+      if (form.mood) fd.append("mood", form.mood);
+      if (form.language) fd.append("language", form.language);
+      if (form.lyrics) fd.append("lyrics", form.lyrics);
       if (audioFile) fd.append("audio_file", audioFile);
       if (coverFile) fd.append("cover_image", coverFile);
 
       const res = isEdit
         ? await adminAPI.updateSong(song.song_id, fd)
         : await adminAPI.createSong(fd);
-
       if (res.success) {
         onSaved();
         onClose();
-      } else setError(res.message || "Lỗi không xác định");
+      } else {
+        setError(res.message || "Lỗi không xác định");
+      }
     } catch (e) {
-      setError(e.message);
+      setError(e.message || "Lỗi mạng");
     } finally {
       setLoading(false);
     }
   };
 
-  const inputStyle = {
+  const inp = {
     background: "#333",
     border: "1px solid #444",
-    borderRadius: 6,
-    padding: "9px 12px",
+    borderRadius: 8,
+    padding: "10px 12px",
     color: "#fff",
     fontSize: 13,
     width: "100%",
     outline: "none",
     boxSizing: "border-box",
   };
-  const labelStyle = {
+  const lbl = {
     color: DIM,
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 5,
     display: "block",
   };
 
@@ -165,297 +272,373 @@ const SongModal = ({ song, genres, artists, onClose, onSaved }) => {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.75)",
+        background: "rgba(0,0,0,.8)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 1000,
+        zIndex: 200,
         padding: 16,
       }}
     >
       <div
         style={{
           background: "#181818",
-          borderRadius: 14,
+          borderRadius: 16,
           width: "100%",
-          maxWidth: 560,
-          maxHeight: "90vh",
+          maxWidth: 580,
+          maxHeight: "92vh",
           overflowY: "auto",
-          padding: 28,
           border: "1px solid #282828",
         }}
       >
-        {/* Header */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            marginBottom: 20,
+            alignItems: "center",
+            padding: "22px 28px 0",
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-            {isEdit ? "✏️ Sửa bài hát" : "➕ Thêm bài hát mới"}
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>
+            {isEdit ? "Sửa bài hát" : "Thêm bài hát mới"}
           </h2>
           <button
             onClick={onClose}
             style={{
-              background: "none",
-              border: "none",
-              color: DIM,
-              cursor: "pointer",
-            }}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {error && (
-          <div
-            style={{
-              background: "#ef444422",
-              border: "1px solid #ef4444",
-              borderRadius: 6,
-              padding: "8px 12px",
-              color: "#ef4444",
-              fontSize: 13,
-              marginBottom: 14,
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        {/* Cover preview + upload */}
-        <div
-          style={{
-            display: "flex",
-            gap: 16,
-            marginBottom: 18,
-            alignItems: "flex-start",
-          }}
-        >
-          <div
-            style={{
-              width: 90,
-              height: 90,
-              borderRadius: 8,
               background: "#282828",
-              flexShrink: 0,
-              overflow: "hidden",
-              border: "2px dashed #444",
+              border: "none",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              cursor: "pointer",
+              color: DIM,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            {coverPreview ? (
-              <img
-                src={coverPreview}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              <Music size={28} color="#555" />
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Ảnh bìa (JPG/PNG, tối đa 5MB)</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setCoverFile(e.target.files[0])}
-              style={{ color: DIM, fontSize: 13 }}
-            />
-            <label style={{ ...labelStyle, marginTop: 12 }}>
-              File nhạc MP3 {!isEdit && "*"}
-            </label>
-            <input
-              type="file"
-              accept="audio/mp3,audio/mpeg"
-              onChange={(e) => setAudioFile(e.target.files[0])}
-              style={{ color: DIM, fontSize: 13 }}
-            />
-            {audioFile && (
-              <p style={{ color: GREEN, fontSize: 12, marginTop: 4 }}>
-                ✓ {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(1)}
-                MB)
-              </p>
-            )}
-          </div>
+            <X size={16} />
+          </button>
         </div>
 
-        {/* Form fields */}
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-        >
-          <div style={{ gridColumn: "1/-1" }}>
-            <label style={labelStyle}>Tên bài hát *</label>
-            <input
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              placeholder="Nhập tên bài hát"
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Nghệ sĩ *</label>
-            <select
-              value={form.artist_id}
-              onChange={(e) => set("artist_id", e.target.value)}
-              style={inputStyle}
+        <div style={{ padding: "20px 28px 28px" }}>
+          {error && (
+            <div
+              style={{
+                background: "#ef444422",
+                border: "1px solid #ef4444",
+                borderRadius: 8,
+                padding: "10px 14px",
+                color: "#ef4444",
+                fontSize: 13,
+                marginBottom: 14,
+              }}
             >
-              <option value="">-- Chọn nghệ sĩ --</option>
-              {artists.map((a) => (
-                <option key={a.artist_id} value={a.artist_id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              {error}
+            </div>
+          )}
 
-          <div>
-            <label style={labelStyle}>Thể loại *</label>
-            <select
-              value={form.genre_id}
-              onChange={(e) => set("genre_id", e.target.value)}
-              style={inputStyle}
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              marginBottom: 18,
+              alignItems: "flex-start",
+            }}
+          >
+            <div
+              style={{
+                width: 90,
+                height: 90,
+                borderRadius: 8,
+                background: "#282828",
+                flexShrink: 0,
+                overflow: "hidden",
+                border: "2px dashed #444",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              <option value="">-- Chọn thể loại --</option>
-              {genres.map((g) => (
-                <option key={g.genre_id || g.id} value={g.genre_id || g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+              {coverSrc ? (
+                <img
+                  src={coverSrc}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <Music size={28} color="#555" />
+              )}
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label style={lbl}>Ảnh bìa (JPG/PNG, tối đa 5MB)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setCoverFile(e.target.files[0])}
+                style={{ color: DIM, fontSize: 13 }}
+              />
+              {coverFile && (
+                <p style={{ color: GREEN, fontSize: 12, margin: "4px 0 0" }}>
+                  ✓ {coverFile.name}
+                </p>
+              )}
+
+              <label style={{ ...lbl, marginTop: 12 }}>
+                File nhạc MP3 {!isEdit && "*"}
+              </label>
+              <input
+                type="file"
+                accept="audio/mp3,audio/mpeg"
+                onChange={(e) => setAudioFile(e.target.files[0])}
+                style={{ color: DIM, fontSize: 13 }}
+              />
+              {audioFile && (
+                <p style={{ color: GREEN, fontSize: 12, margin: "4px 0 0" }}>
+                  ✓ {audioFile.name} (
+                  {(audioFile.size / 1024 / 1024).toFixed(1)}MB)
+                </p>
+              )}
+            </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>Thời lượng (giây)</label>
-            <input
-              type="number"
-              value={form.duration}
-              onChange={(e) => set("duration", e.target.value)}
-              placeholder="213"
-              style={inputStyle}
-            />
-          </div>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={lbl}>Tên bài hát *</label>
+              <input
+                value={form.title}
+                onChange={setField("title")}
+                placeholder="Nhập tên bài hát"
+                style={inp}
+              />
+            </div>
 
-          <div>
-            <label style={labelStyle}>Ngày phát hành</label>
-            <input
-              type="date"
-              value={form.release_date}
-              onChange={(e) => set("release_date", e.target.value)}
-              style={inputStyle}
-            />
-          </div>
+            <div style={{ position: "relative", gridColumn: "1/-1" }}>
+              <label style={lbl}>Nghệ sĩ *</label>
+              <input
+                type="text"
+                placeholder="Nhập và chọn tên nghệ sĩ..."
+                style={inp}
+                value={artistSearch}
+                onChange={(e) => {
+                  setArtistSearch(e.target.value);
+                  setForm((f) => ({ ...f, artist_id: "" }));
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              />
 
-          <div>
-            <label style={labelStyle}>Mood</label>
-            <select
-              value={form.mood}
-              onChange={(e) => set("mood", e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">-- Không chọn --</option>
-              {["happy", "sad", "energetic", "chill", "romantic", "angry"].map(
-                (m) => (
+              {showSuggestions &&
+                artistSearch &&
+                filteredArtists.length > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "#282828",
+                      border: "1px solid #444",
+                      borderRadius: 8,
+                      maxHeight: 180,
+                      overflowY: "auto",
+                      zIndex: 10,
+                      marginTop: 4,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                    }}
+                  >
+                    {filteredArtists.map((a) => (
+                      <div
+                        key={a.artist_id}
+                        style={{
+                          padding: "10px 12px",
+                          cursor: "pointer",
+                          color: "#fff",
+                          fontSize: 13,
+                          borderBottom: "1px solid #333",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = "#3e3e3e")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
+                        onClick={() => {
+                          setArtistSearch(a.name);
+                          setForm((f) => ({ ...f, artist_id: a.artist_id }));
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        {a.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+
+            <div>
+              <label style={lbl}>Thuộc Album</label>
+              <select
+                value={form.album_id}
+                onChange={setField("album_id")}
+                style={inp}
+              >
+                <option value="">-- Không thuộc album nào --</option>
+                {albums
+                  .filter(
+                    (a) =>
+                      a.artist_id == form.artist_id ||
+                      a.artist?.artist_id == form.artist_id,
+                  )
+                  .map((al) => (
+                    <option key={al.album_id} value={al.album_id}>
+                      {al.title}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={lbl}>Thể loại *</label>
+              <select
+                value={form.genre_id}
+                onChange={setField("genre_id")}
+                style={inp}
+              >
+                <option value="">-- Chọn thể loại --</option>
+                {genres.map((g) => (
+                  <option key={g.genre_id || g.id} value={g.genre_id || g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={lbl}>Thời lượng (giây)</label>
+              <input
+                type="number"
+                value={form.duration}
+                onChange={setField("duration")}
+                placeholder="213"
+                style={inp}
+              />
+            </div>
+
+            <div>
+              <label style={lbl}>Ngày phát hành</label>
+              <input
+                type="date"
+                value={form.release_date}
+                onChange={setField("release_date")}
+                style={inp}
+              />
+            </div>
+
+            <div>
+              <label style={lbl}>Mood</label>
+              <select value={form.mood} onChange={setField("mood")} style={inp}>
+                <option value="">-- Không chọn --</option>
+                {MOODS.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
-                ),
-              )}
-            </select>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={lbl}>Ngôn ngữ</label>
+              <select
+                value={form.language}
+                onChange={setField("language")}
+                style={inp}
+              >
+                {LANGS.map((l) => (
+                  <option key={l.value} value={l.value}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={lbl}>Lời bài hát</label>
+              <textarea
+                value={form.lyrics}
+                onChange={setField("lyrics")}
+                placeholder="Nhập lời bài hát..."
+                rows={4}
+                style={{ ...inp, resize: "vertical", lineHeight: 1.6 }}
+              />
+            </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>Ngôn ngữ</label>
-            <select
-              value={form.language}
-              onChange={(e) => set("language", e.target.value)}
-              style={inputStyle}
-            >
-              <option value="vi">Tiếng Việt</option>
-              <option value="en">English</option>
-              <option value="ko">한국어</option>
-              <option value="jp">日本語</option>
-              <option value="other">Khác</option>
-            </select>
-          </div>
-
-          <div style={{ gridColumn: "1/-1" }}>
-            <label style={labelStyle}>Lời bài hát</label>
-            <textarea
-              value={form.lyrics}
-              onChange={(e) => set("lyrics", e.target.value)}
-              placeholder="Nhập lời bài hát..."
-              rows={4}
-              style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            justifyContent: "flex-end",
-            marginTop: 20,
-          }}
-        >
-          <button
-            onClick={onClose}
-            disabled={loading}
+          <div
             style={{
-              padding: "9px 22px",
-              background: "#333",
-              border: "none",
-              borderRadius: 20,
-              color: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            Huỷ
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              padding: "9px 22px",
-              background: GREEN,
-              border: "none",
-              borderRadius: 20,
-              color: "#000",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: 700,
-              opacity: loading ? 0.7 : 1,
               display: "flex",
-              alignItems: "center",
-              gap: 6,
+              gap: 10,
+              justifyContent: "flex-end",
+              marginTop: 20,
             }}
           >
-            {loading ? (
-              <>
-                <Upload size={14} /> Đang lưu...
-              </>
-            ) : (
-              <>
-                <CheckCircle size={14} /> Lưu
-              </>
-            )}
-          </button>
+            <button
+              onClick={onClose}
+              disabled={loading}
+              style={{
+                padding: "9px 22px",
+                background: "#333",
+                border: "none",
+                borderRadius: 20,
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Huỷ
+            </button>
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              style={{
+                padding: "9px 22px",
+                background: GREEN,
+                border: "none",
+                borderRadius: 20,
+                color: "#000",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight: 700,
+                opacity: loading ? 0.7 : 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {loading ? (
+                <>
+                  <Upload size={14} /> Đang lưu...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={14} /> Lưu
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// MAIN PAGE
-// ════════════════════════════════════════════════════════════════════════════
+/* ---------------- AdminSongs main page ---------------- */
+
 const AdminSongs = () => {
+  const [allFetchedSongs, setAllFetchedSongs] = useState([]);
   const [songs, setSongs] = useState([]);
   const [genres, setGenres] = useState([]);
   const [artists, setArtists] = useState([]);
@@ -469,74 +652,99 @@ const AdminSongs = () => {
   const [search, setSearch] = useState("");
   const [genreFilter, setGenreFilter] = useState("");
   const [sortOption, setSortOption] = useState("newest");
-  const [modal, setModal] = useState(null); // null | "create" | song object
-  const [confirm, setConfirm] = useState(null); // null | song id
-  const { toast, show: showToast } = useToast();
-  const searchTimer = useRef(null);
+  const [modal, setModal] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const { toast, show } = useToast();
+  const debouncedSearch = useDebounce(search);
 
-  const fetchSongs = async (p = 1) => {
+  const fetchAllSongsFromBackend = useCallback(async () => {
     setLoading(true);
     try {
       const res = await adminAPI.getSongs({
-        page: p,
-        limit: 20,
-        search: search || undefined,
-        genre_id: genreFilter || undefined,
-        sort: sortOption,
+        page: 1,
+        limit: 10000,
+        ...(debouncedSearch && { search: debouncedSearch }),
+        ...(genreFilter && { genre_id: genreFilter }),
+        sort: "newest",
       });
       if (res.success) {
-        setSongs(res.data);
-        setPagination(res.pagination);
+        setAllFetchedSongs(res.data);
+        setPage(1);
       }
     } catch (e) {
-      showToast(e.message, "error");
+      show(e.message || "Lỗi khi tải danh sách", "error");
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, genreFilter, show]);
 
-  // Load genres + artists một lần
+  useEffect(() => {
+    fetchAllSongsFromBackend();
+  }, [fetchAllSongsFromBackend]);
+
   useEffect(() => {
     genreAPI.getGenres().then((r) => {
       if (r?.success) setGenres(r.data);
     });
-    adminAPI.getArtists({ limit: 200 }).then((r) => {
+    adminAPI.getArtists({ limit: 10000 }).then((r) => {
       if (r?.success) setArtists(r.data);
     });
   }, []);
 
   useEffect(() => {
-    clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      setPage(1);
-      fetchSongs(1);
-    }, 400);
-  }, [search, genreFilter, sortOption]);
+    let processed = [...allFetchedSongs];
+    if (sortOption === "oldest") {
+      processed.reverse();
+    } else if (sortOption === "popular") {
+      processed.sort((a, b) => b.play_count - a.play_count);
+    } else if (sortOption === "az") {
+      processed.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortOption === "za") {
+      processed.sort((a, b) => b.title.localeCompare(a.title));
+    }
 
-  useEffect(() => {
-    fetchSongs(page);
-  }, [page]);
+    const limit = 20;
+    const total = processed.length;
+    const total_pages = Math.ceil(total / limit) || 1;
+    let currPage = page > total_pages ? total_pages : page;
+    const startIdx = (currPage - 1) * limit;
+    const endIdx = startIdx + limit;
+
+    setSongs(processed.slice(startIdx, endIdx));
+    setPagination({ page: currPage, total_pages, total });
+  }, [allFetchedSongs, sortOption, page]);
+
+  const openEdit = async (song) => {
+    if (!song.artist || !song.genre) {
+      try {
+        const res = await adminAPI.getSongById(song.song_id);
+        if (res?.success) setModal(res.data);
+        else setModal(song);
+      } catch {
+        setModal(song);
+      }
+    } else {
+      setModal(song);
+    }
+  };
 
   const handleDelete = async (id) => {
     try {
       const res = await adminAPI.deleteSong(id);
       if (res.success) {
-        showToast("Đã xoá bài hát");
-        fetchSongs(page);
-      } else showToast(res.message, "error");
+        show("Đã xoá bài hát");
+        fetchAllSongsFromBackend();
+      } else {
+        show(res.message || "Xoá thất bại", "error");
+      }
     } catch (e) {
-      showToast(e.message, "error");
+      show(e.message || "Lỗi mạng", "error");
+    } finally {
+      setConfirm(null);
     }
-    setConfirm(null);
   };
 
-  const fmt = (n) => {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-    if (n >= 1_000) return (n / 1_000).toFixed(0) + "K";
-    return String(n ?? 0);
-  };
-
-  const selectStyle = {
+  const sel = {
     background: "#181818",
     border: "1px solid #333",
     borderRadius: 8,
@@ -548,7 +756,6 @@ const AdminSongs = () => {
 
   return (
     <div style={{ padding: "32px 36px", color: "#fff" }}>
-      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -565,27 +772,29 @@ const AdminSongs = () => {
             {pagination.total} bài hát
           </p>
         </div>
-        <button
-          onClick={() => setModal("create")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "10px 20px",
-            background: GREEN,
-            border: "none",
-            borderRadius: 20,
-            color: "#000",
-            fontWeight: 700,
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          <Plus size={16} /> Thêm bài hát
-        </button>
+
+        <div style={{ display: "flex", gap: 12 }}>
+          <button
+            onClick={() => setModal("create")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "10px 20px",
+              background: GREEN,
+              border: "none",
+              borderRadius: 20,
+              color: "#000",
+              fontWeight: 700,
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >
+            <Plus size={16} /> Thêm bài hát
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
       <div
         style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}
       >
@@ -605,11 +814,11 @@ const AdminSongs = () => {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm tên bài hát, nghệ sĩ..."
             style={{
-              ...selectStyle,
+              ...sel,
               paddingLeft: 36,
               width: "100%",
               boxSizing: "border-box",
-              borderRadius: 8,
+              outline: "none",
             }}
           />
         </div>
@@ -620,7 +829,7 @@ const AdminSongs = () => {
             setGenreFilter(e.target.value);
             setPage(1);
           }}
-          style={selectStyle}
+          style={sel}
         >
           <option value="">Tất cả thể loại</option>
           {genres.map((g) => (
@@ -636,16 +845,16 @@ const AdminSongs = () => {
             setSortOption(e.target.value);
             setPage(1);
           }}
-          style={selectStyle}
+          style={sel}
         >
           <option value="newest">Mới nhất</option>
           <option value="oldest">Cũ nhất</option>
           <option value="popular">Nhiều nghe nhất</option>
-          <option value="title">Tên A-Z</option>
+          <option value="az">Tên A-Z</option>
+          <option value="za">Tên Z-A</option>
         </select>
       </div>
 
-      {/* Table */}
       {loading ? (
         <p style={{ color: DIM, textAlign: "center", padding: 40 }}>
           Đang tải...
@@ -659,18 +868,18 @@ const AdminSongs = () => {
             overflow: "hidden",
           }}
         >
-          {/* Table header */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns:
-                "40px 52px 1fr 140px 90px 70px 70px 90px 80px",
+                "40px 52px 1fr 130px 90px 60px 70px 85px 80px",
               padding: "12px 16px",
               background: "#282828",
               color: DIM,
-              fontSize: 12,
-              fontWeight: 600,
+              fontSize: 11,
+              fontWeight: 700,
               textTransform: "uppercase",
+              letterSpacing: 0.5,
             }}
           >
             <span>#</span>
@@ -684,110 +893,139 @@ const AdminSongs = () => {
             <span>Hành động</span>
           </div>
 
-          {songs.map((song, idx) => (
-            <div
-              key={song.song_id}
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "40px 52px 1fr 140px 90px 70px 70px 90px 80px",
-                padding: "10px 16px",
-                borderBottom: "1px solid #282828",
-                alignItems: "center",
-                opacity: song.is_active ? 1 : 0.45,
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "#282828")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              <span style={{ color: DIM, fontSize: 13 }}>
-                {(pagination.page - 1) * 20 + idx + 1}
-              </span>
-              <img
-                src={song.cover_url || "/default-cover.png"}
-                alt=""
+          {songs.map((song, idx) => {
+            const coverUrl = getImageUrl(song.cover_url);
+            return (
+              <div
+                key={song.song_id}
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 4,
-                  objectFit: "cover",
+                  display: "grid",
+                  gridTemplateColumns:
+                    "40px 52px 1fr 130px 90px 60px 70px 85px 80px",
+                  padding: "10px 16px",
+                  borderBottom: "1px solid #282828",
+                  alignItems: "center",
+                  opacity: song.is_active ? 1 : 0.45,
                 }}
-              />
-              <div style={{ minWidth: 0 }}>
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "#282828")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                <span style={{ color: DIM, fontSize: 13 }}>
+                  {(pagination.page - 1) * 20 + idx + 1}
+                </span>
+
                 <div
                   style={{
-                    fontWeight: 600,
-                    fontSize: 13,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 4,
+                    background: "#333",
                     overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {song.title}
+                  {coverUrl ? (
+                    <img
+                      src={coverUrl}
+                      alt=""
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <Music size={16} color="#555" />
+                  )}
                 </div>
-                <div style={{ color: DIM, fontSize: 12 }}>
-                  {song.artist?.name}
-                </div>
-              </div>
-              <span style={{ color: DIM, fontSize: 12 }}>
-                {song.genre?.name || "—"}
-              </span>
-              <span style={{ color: DIM, fontSize: 12 }}>
-                {song.duration_formatted}
-              </span>
-              <span style={{ fontSize: 13 }}>{fmt(song.play_count)}</span>
-              <span style={{ fontSize: 13 }}>{fmt(song.like_count)}</span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: song.is_active ? GREEN : "#ef4444",
-                  background: (song.is_active ? GREEN : "#ef4444") + "22",
-                  padding: "3px 8px",
-                  borderRadius: 20,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {song.is_active ? "Hoạt động" : "Đã xoá"}
-              </span>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  onClick={() => setModal(song)}
-                  title="Sửa"
-                  style={{
-                    background: "#282828",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: 6,
-                    cursor: "pointer",
-                    color: "#fff",
-                  }}
-                >
-                  <Pencil size={14} />
-                </button>
-                {song.is_active && (
-                  <button
-                    onClick={() => setConfirm(song.song_id)}
-                    title="Xoá"
+
+                <div style={{ minWidth: 0 }}>
+                  <div
                     style={{
-                      background: "#ef444422",
+                      fontWeight: 600,
+                      fontSize: 13,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {song.title}
+                  </div>
+                  <div style={{ color: DIM, fontSize: 12 }}>
+                    {song.artist?.name || "—"}
+                  </div>
+                </div>
+
+                <span style={{ color: DIM, fontSize: 12 }}>
+                  {song.genre?.name || "—"}
+                </span>
+                <span style={{ color: DIM, fontSize: 12 }}>
+                  {song.duration_formatted || "—"}
+                </span>
+                <span style={{ fontSize: 13 }}>{fmt(song.play_count)}</span>
+                <span style={{ fontSize: 13 }}>{fmt(song.like_count)}</span>
+
+                <div>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: song.is_active ? GREEN : "#ef4444",
+                      background: (song.is_active ? GREEN : "#ef4444") + "22",
+                      padding: "4px 8px",
+                      borderRadius: 20,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {song.is_active ? "Hoạt động" : "Đã xoá"}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => openEdit(song)}
+                    title="Sửa"
+                    style={{
+                      background: "#282828",
                       border: "none",
                       borderRadius: 6,
                       padding: 6,
                       cursor: "pointer",
-                      color: "#ef4444",
+                      color: "#fff",
                     }}
                   >
-                    <Trash2 size={14} />
+                    <Pencil size={13} />
                   </button>
-                )}
+
+                  {song.is_active && (
+                    <button
+                      onClick={() => setConfirm(song.song_id)}
+                      title="Xoá"
+                      style={{
+                        background: "#ef444422",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: 6,
+                        cursor: "pointer",
+                        color: "#ef4444",
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {songs.length === 0 && (
             <p style={{ color: DIM, textAlign: "center", padding: 40 }}>
@@ -797,7 +1035,6 @@ const AdminSongs = () => {
         </div>
       )}
 
-      {/* Pagination */}
       {pagination.total_pages > 1 && (
         <div
           style={{
@@ -813,7 +1050,7 @@ const AdminSongs = () => {
             disabled={page <= 1}
             style={{
               padding: "8px 16px",
-              background: page <= 1 ? "#282828" : "#333",
+              background: "#282828",
               border: "none",
               borderRadius: 8,
               color: page <= 1 ? DIM : "#fff",
@@ -822,10 +1059,12 @@ const AdminSongs = () => {
           >
             <ChevronLeft size={16} />
           </button>
+
           <span style={{ color: DIM, fontSize: 13 }}>
             Trang <strong style={{ color: "#fff" }}>{page}</strong> /{" "}
             {pagination.total_pages}
           </span>
+
           <button
             onClick={() =>
               setPage((p) => Math.min(pagination.total_pages, p + 1))
@@ -833,7 +1072,7 @@ const AdminSongs = () => {
             disabled={page >= pagination.total_pages}
             style={{
               padding: "8px 16px",
-              background: page >= pagination.total_pages ? "#282828" : "#333",
+              background: "#282828",
               border: "none",
               borderRadius: 8,
               color: page >= pagination.total_pages ? DIM : "#fff",
@@ -846,7 +1085,6 @@ const AdminSongs = () => {
         </div>
       )}
 
-      {/* Modals */}
       {modal && (
         <SongModal
           song={modal === "create" ? null : modal}
@@ -854,21 +1092,20 @@ const AdminSongs = () => {
           artists={artists}
           onClose={() => setModal(null)}
           onSaved={() => {
-            showToast(modal === "create" ? "Đã thêm bài hát" : "Đã cập nhật");
-            fetchSongs(page);
+            show(modal === "create" ? "Đã thêm bài hát" : "Đã cập nhật");
+            fetchAllSongsFromBackend();
           }}
         />
       )}
 
       {confirm && (
-        <ConfirmDialog
-          message="Bạn chắc chắn muốn xoá bài hát này? (Soft delete — có thể khôi phục)"
+        <Confirm
+          message="Xoá bài hát này? (soft delete)"
           onConfirm={() => handleDelete(confirm)}
           onCancel={() => setConfirm(null)}
         />
       )}
 
-      {/* Toast */}
       {toast && (
         <div
           style={{
@@ -883,14 +1120,14 @@ const AdminSongs = () => {
             fontWeight: 600,
             fontSize: 14,
             zIndex: 9999,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-            animation: "fadeUp 0.2s ease",
+            animation: "fadeUp .2s ease",
           }}
         >
           {toast.msg}
         </div>
       )}
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translate(-50%,16px); } to { opacity:1; transform:translate(-50%,0); } }`}</style>
+
+      <style>{`@keyframes fadeUp{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}`}</style>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import React, { useContext, useState } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
@@ -16,6 +17,10 @@ import {
   LogOut,
   LayoutDashboard,
   Music,
+  Disc3,
+  DollarSign,
+  BarChart2,
+  UsersRound,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -42,9 +47,7 @@ export const Sidebar = () => {
       <div className="sidebar-logo">Spotify</div>
 
       <nav className="sidebar-nav">
-        {/* ======================================================== */}
-        {/* NẾU LÀ ADMIN: CHỈ HIỂN THỊ MENU QUẢN TRỊ               */}
-        {/* ======================================================== */}
+        {/* ADMIN MENU */}
         {isAdmin && (
           <div
             className="admin-menu-section"
@@ -82,7 +85,24 @@ export const Sidebar = () => {
               <Music size={24} /> Quản lý nội dung
             </NavLink>
 
-            {/* ── THÊM MỚI: Quản lý người dùng ── */}
+            <NavLink
+              to="/admin/artists"
+              className={({ isActive }) =>
+                isActive ? "nav-item active" : "nav-item"
+              }
+            >
+              <Users size={24} /> Quản lý nghệ sĩ
+            </NavLink>
+
+            <NavLink
+              to="/admin/albums"
+              className={({ isActive }) =>
+                isActive ? "nav-item active" : "nav-item"
+              }
+            >
+              <Disc3 size={24} /> Quản lý album
+            </NavLink>
+
             <NavLink
               to="/admin/users"
               className={({ isActive }) =>
@@ -92,13 +112,38 @@ export const Sidebar = () => {
               <Users size={24} /> Quản lý người dùng
             </NavLink>
 
+            <NavLink
+              to="/admin/analytics/revenue"
+              className={({ isActive }) =>
+                isActive ? "nav-item active" : "nav-item"
+              }
+            >
+              <DollarSign size={24} /> Phân tích doanh thu
+            </NavLink>
+
+            <NavLink
+              to="/admin/analytics/music"
+              className={({ isActive }) =>
+                isActive ? "nav-item active" : "nav-item"
+              }
+            >
+              <BarChart2 size={24} /> Phân tích âm nhạc
+            </NavLink>
+
+            <NavLink
+              to="/admin/analytics/users"
+              className={({ isActive }) =>
+                isActive ? "nav-item active" : "nav-item"
+              }
+            >
+              <UsersRound size={24} /> Phân tích người dùng
+            </NavLink>
+
             <div className="sidebar-divider" />
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* NẾU LÀ USER THƯỜNG: HIỂN THỊ MENU BÌNH THƯỜNG           */}
-        {/* ======================================================== */}
+        {/* REGULAR USER MENU */}
         {!isAdmin && (
           <>
             <NavLink
@@ -236,7 +281,7 @@ export const Sidebar = () => {
 
       <div className="sidebar-divider" />
 
-      {/* Khối Footer (Cả Admin và User đều dùng chung để đăng xuất) */}
+      {/* Footer / User block */}
       <div className="sidebar-footer">
         {loading ? (
           <div className="user-info">
@@ -261,6 +306,7 @@ export const Sidebar = () => {
         )}
       </div>
 
+      {/* Create playlist modal only for non-admin users */}
       {user && !isAdmin && (
         <CreatePlaylistModal
           isOpen={isModalOpen}

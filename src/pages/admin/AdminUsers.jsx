@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { adminAPI } from "../../services/api";
 import {
   Search,
@@ -6,7 +6,6 @@ import {
   ChevronRight,
   ShieldCheck,
   Ban,
-  CreditCard,
   Eye,
   X,
   RefreshCw,
@@ -14,27 +13,26 @@ import {
 
 const GREEN = "#1db954";
 const DIM = "#b3b3b3";
+const BASE_URL = "http://localhost:5000";
+
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("vi-VN") : "—");
+const fmt = (n) => {
+  if (!n) return "0";
+  if (n >= 1000) return (n / 1000).toFixed(0) + "K";
+  return String(n);
+};
 
 const useToast = () => {
   const [toast, setToast] = useState(null);
   const t = useRef(null);
-  const show = (msg, type = "success") => {
+  const show = useCallback((msg, type = "success") => {
     clearTimeout(t.current);
     setToast({ msg, type });
     t.current = setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
   return { toast, show };
 };
 
-const fmt = (n) => {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(0) + "K";
-  return String(n ?? 0);
-};
-
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("vi-VN") : "—");
-
-// ── Badge ─────────────────────────────────────────────────────────────────────
 const Badge = ({ label, color }) => (
   <span
     style={{
@@ -51,17 +49,21 @@ const Badge = ({ label, color }) => (
   </span>
 );
 
-// ── User Detail Drawer ────────────────────────────────────────────────────────
+// ── User Drawer ───────────────────────────────────────────────────────────────
 const UserDrawer = ({ userId, onClose }) => {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
     adminAPI
       .getUserDetail(userId)
       .then((r) => {
         if (r.success) setDetail(r.data);
+        else setError(r.message);
       })
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [userId]);
 
@@ -70,10 +72,10 @@ const UserDrawer = ({ userId, onClose }) => {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.65)",
+        background: "rgba(0,0,0,.65)",
         display: "flex",
         justifyContent: "flex-end",
-        zIndex: 1000,
+        zIndex: 300,
       }}
       onClick={onClose}
     >
@@ -111,13 +113,11 @@ const UserDrawer = ({ userId, onClose }) => {
           </button>
         </div>
 
-        {loading ? (
-          <p style={{ color: DIM }}>Đang tải...</p>
-        ) : !detail ? (
-          <p style={{ color: "#ef4444" }}>Không tìm thấy</p>
-        ) : (
+        {loading && <p style={{ color: DIM }}>Đang tải...</p>}
+        {error && <p style={{ color: "#ef4444" }}>Lỗi: {error}</p>}
+
+        {detail && (
           <>
-            {/* Avatar + name */}
             <div
               style={{
                 display: "flex",
@@ -139,11 +139,16 @@ const UserDrawer = ({ userId, onClose }) => {
                   fontSize: 20,
                   fontWeight: 700,
                   color: GREEN,
+                  flexShrink: 0,
                 }}
               >
                 {detail.avatar_url ? (
                   <img
-                    src={detail.avatar_url}
+                    src={
+                      detail.avatar_url.startsWith("http")
+                        ? detail.avatar_url
+                        : BASE_URL + detail.avatar_url
+                    }
                     alt=""
                     style={{
                       width: "100%",
@@ -152,7 +157,7 @@ const UserDrawer = ({ userId, onClose }) => {
                     }}
                   />
                 ) : (
-                  detail.display_name?.charAt(0)?.toUpperCase()
+                  detail.display_name?.charAt(0)?.toUpperCase() || "U"
                 )}
               </div>
               <div>
@@ -160,7 +165,14 @@ const UserDrawer = ({ userId, onClose }) => {
                   {detail.display_name}
                 </div>
                 <div style={{ color: DIM, fontSize: 13 }}>{detail.email}</div>
-                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    marginTop: 6,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <Badge
                     label={detail.role === "admin" ? "Admin" : "User"}
                     color={detail.role === "admin" ? "#f59e0b" : "#3b82f6"}
@@ -177,7 +189,7 @@ const UserDrawer = ({ userId, onClose }) => {
               </div>
             </div>
 
-            {/* Stats */}
+            {/* stats */}
             <div
               style={{
                 display: "grid",
@@ -214,7 +226,7 @@ const UserDrawer = ({ userId, onClose }) => {
               ))}
             </div>
 
-            {/* Info */}
+            {/* info */}
             <div style={{ borderTop: "1px solid #282828", paddingTop: 16 }}>
               {[
                 { label: "Quốc gia", value: detail.country || "—" },
@@ -239,7 +251,6 @@ const UserDrawer = ({ userId, onClose }) => {
               ))}
             </div>
 
-            {/* Subscription history */}
             {detail.subscription_history?.length > 0 && (
               <div style={{ marginTop: 20 }}>
                 <p
@@ -286,11 +297,12 @@ const UserDrawer = ({ userId, onClose }) => {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// MAIN PAGE
+// MAIN
 // ════════════════════════════════════════════════════════════════════════════
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [pagination, setPagination] = useState({
     page: 1,
     total_pages: 1,
@@ -304,26 +316,30 @@ const AdminUsers = () => {
   const { toast, show: showToast } = useToast();
   const searchTimer = useRef(null);
 
-  const fetchUsers = async (p = 1) => {
-    setLoading(true);
-    try {
-      const res = await adminAPI.getUsers({
-        page: p,
-        limit: 20,
-        search: search || undefined,
-        role: roleFilter || undefined,
-        plan: planFilter || undefined,
-      });
-      if (res.success) {
-        setUsers(res.data);
-        setPagination(res.pagination);
+  const fetchUsers = useCallback(
+    async (p = 1) => {
+      setLoading(true);
+      setError("");
+      try {
+        const params = { page: p, limit: 20 };
+        if (search) params.search = search;
+        if (roleFilter) params.role = roleFilter;
+        if (planFilter) params.plan = planFilter;
+        const res = await adminAPI.getUsers(params);
+        if (res.success) {
+          setUsers(res.data);
+          setPagination(res.pagination);
+        } else {
+          setError(res.message || "Lỗi tải dữ liệu");
+        }
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      showToast(e.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [search, roleFilter, planFilter],
+  );
 
   useEffect(() => {
     clearTimeout(searchTimer.current);
@@ -337,13 +353,12 @@ const AdminUsers = () => {
     fetchUsers(page);
   }, [page]);
 
-  // ── Actions ─────────────────────────────────────────────────────────────
   const handleBlock = async (user) => {
     const newState = !user.is_active;
     try {
       const res = await adminAPI.blockUser(user.user_id, newState);
       if (res.success) {
-        showToast(newState ? "Đã mở khoá tài khoản" : "Đã khoá tài khoản");
+        showToast(newState ? "Đã mở khoá" : "Đã khoá tài khoản");
         setUsers((prev) =>
           prev.map((u) =>
             u.user_id === user.user_id ? { ...u, is_active: newState } : u,
@@ -392,7 +407,7 @@ const AdminUsers = () => {
     }
   };
 
-  const selectStyle = {
+  const sel = {
     background: "#181818",
     border: "1px solid #333",
     borderRadius: 8,
@@ -404,7 +419,7 @@ const AdminUsers = () => {
 
   return (
     <div style={{ padding: "32px 36px", color: "#fff" }}>
-      {/* Header */}
+      {/* header */}
       <div
         style={{
           display: "flex",
@@ -440,7 +455,7 @@ const AdminUsers = () => {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* filters */}
       <div
         style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}
       >
@@ -460,7 +475,7 @@ const AdminUsers = () => {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm tên, email..."
             style={{
-              ...selectStyle,
+              ...sel,
               paddingLeft: 36,
               width: "100%",
               boxSizing: "border-box",
@@ -474,7 +489,7 @@ const AdminUsers = () => {
             setRoleFilter(e.target.value);
             setPage(1);
           }}
-          style={selectStyle}
+          style={sel}
         >
           <option value="">Tất cả role</option>
           <option value="user">User</option>
@@ -486,7 +501,7 @@ const AdminUsers = () => {
             setPlanFilter(e.target.value);
             setPage(1);
           }}
-          style={selectStyle}
+          style={sel}
         >
           <option value="">Tất cả plan</option>
           <option value="free">Free</option>
@@ -494,7 +509,24 @@ const AdminUsers = () => {
         </select>
       </div>
 
-      {/* Table */}
+      {/* error */}
+      {error && (
+        <div
+          style={{
+            background: "#ef444422",
+            border: "1px solid #ef4444",
+            borderRadius: 8,
+            padding: "12px 16px",
+            color: "#ef4444",
+            marginBottom: 16,
+            fontSize: 13,
+          }}
+        >
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* table */}
       {loading ? (
         <p style={{ color: DIM, textAlign: "center", padding: 40 }}>
           Đang tải...
@@ -508,17 +540,18 @@ const AdminUsers = () => {
             overflow: "hidden",
           }}
         >
-          {/* Head */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "40px 1fr 80px 90px 90px 80px 100px",
+              gridTemplateColumns: "40px 1fr 80px 100px 80px 80px 100px",
+              gap: 16,
               padding: "12px 16px",
               background: "#282828",
               color: DIM,
-              fontSize: 12,
-              fontWeight: 600,
+              fontSize: 11,
+              fontWeight: 700,
               textTransform: "uppercase",
+              letterSpacing: 0.5,
             }}
           >
             <span>#</span>
@@ -529,17 +562,16 @@ const AdminUsers = () => {
             <span>Trạng thái</span>
             <span>Hành động</span>
           </div>
-
           {users.map((user, idx) => (
             <div
               key={user.user_id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "40px 1fr 80px 90px 90px 80px 100px",
+                gridTemplateColumns: "40px 1fr 80px 100px 80px 80px 100px",
+                gap: 16,
                 padding: "10px 16px",
                 borderBottom: "1px solid #282828",
                 alignItems: "center",
-                transition: "background 0.15s",
               }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.background = "#282828")
@@ -551,7 +583,6 @@ const AdminUsers = () => {
               <span style={{ color: DIM, fontSize: 13 }}>
                 {(pagination.page - 1) * 20 + idx + 1}
               </span>
-
               <div>
                 <div style={{ fontWeight: 600, fontSize: 13 }}>
                   {user.display_name}
@@ -561,7 +592,6 @@ const AdminUsers = () => {
                   Tham gia: {fmtDate(user.created_at)}
                 </div>
               </div>
-
               <div>
                 <Badge
                   label={user.role === "admin" ? "Admin" : "User"}
@@ -569,32 +599,32 @@ const AdminUsers = () => {
                 />
               </div>
 
-              {/* Plan dropdown */}
-              <select
-                value={user.plan}
-                onChange={(e) => handlePlan(user, e.target.value)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: user.plan === "free" ? DIM : GREEN,
-                  fontWeight: 600,
-                  fontSize: 13,
-                }}
-              >
-                <option value="free">Free</option>
-                <option value="premium">Premium</option>
-              </select>
+              <div>
+                <select
+                  value={user.plan}
+                  onChange={(e) => handlePlan(user, e.target.value)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    outline: "none",
+                    cursor: "pointer",
+                    color: user.plan === "free" ? DIM : GREEN,
+                    fontWeight: 600,
+                    fontSize: 13,
+                    padding: 0,
+                  }}
+                >
+                  <option value="free">Free</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
 
               <span style={{ fontSize: 13 }}>{fmt(user.total_plays)}</span>
-
               <Badge
                 label={user.is_active ? "Hoạt động" : "Bị khoá"}
                 color={user.is_active ? GREEN : "#ef4444"}
               />
-
               <div style={{ display: "flex", gap: 6 }}>
-                {/* Xem chi tiết */}
                 <button
                   onClick={() => setDetailId(user.user_id)}
                   title="Chi tiết"
@@ -609,7 +639,6 @@ const AdminUsers = () => {
                 >
                   <Eye size={13} />
                 </button>
-                {/* Đổi role */}
                 <button
                   onClick={() => handleRole(user)}
                   title={
@@ -626,10 +655,9 @@ const AdminUsers = () => {
                 >
                   <ShieldCheck size={13} />
                 </button>
-                {/* Block / Unblock */}
                 <button
                   onClick={() => handleBlock(user)}
-                  title={user.is_active ? "Khoá tài khoản" : "Mở khoá"}
+                  title={user.is_active ? "Khoá" : "Mở khoá"}
                   style={{
                     background: user.is_active ? "#ef444422" : "#10b98122",
                     border: "none",
@@ -644,16 +672,15 @@ const AdminUsers = () => {
               </div>
             </div>
           ))}
-
-          {users.length === 0 && (
+          {users.length === 0 && !loading && (
             <p style={{ color: DIM, textAlign: "center", padding: 40 }}>
-              Không có user nào
+              Không có người dùng nào
             </p>
           )}
         </div>
       )}
 
-      {/* Pagination */}
+      {/* pagination */}
       {pagination.total_pages > 1 && (
         <div
           style={{
@@ -669,7 +696,7 @@ const AdminUsers = () => {
             disabled={page <= 1}
             style={{
               padding: "8px 16px",
-              background: page <= 1 ? "#282828" : "#333",
+              background: "#282828",
               border: "none",
               borderRadius: 8,
               color: page <= 1 ? DIM : "#fff",
@@ -689,7 +716,7 @@ const AdminUsers = () => {
             disabled={page >= pagination.total_pages}
             style={{
               padding: "8px 16px",
-              background: page >= pagination.total_pages ? "#282828" : "#333",
+              background: "#282828",
               border: "none",
               borderRadius: 8,
               color: page >= pagination.total_pages ? DIM : "#fff",
@@ -702,12 +729,10 @@ const AdminUsers = () => {
         </div>
       )}
 
-      {/* Detail Drawer */}
       {detailId && (
         <UserDrawer userId={detailId} onClose={() => setDetailId(null)} />
       )}
 
-      {/* Toast */}
       {toast && (
         <div
           style={{
@@ -722,14 +747,13 @@ const AdminUsers = () => {
             fontWeight: 600,
             fontSize: 14,
             zIndex: 9999,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-            animation: "fadeUp 0.2s ease",
+            animation: "fadeUp .2s ease",
           }}
         >
           {toast.msg}
         </div>
       )}
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translate(-50%,16px); } to { opacity:1; transform:translate(-50%,0); } }`}</style>
+      <style>{`@keyframes fadeUp{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}`}</style>
     </div>
   );
 };

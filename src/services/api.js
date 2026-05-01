@@ -3,12 +3,21 @@ export const BASE_URL = "http://localhost:5000/api";
 // ── fetch thường (JSON) ────────────────────────────────────────────
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = localStorage.getItem("token");
-  const headers = { "Content-Type": "application/json", ...options.headers };
+
+  //Cache-Control: no-cache trình duyệt luôn lấy data mới nhất
+  const headers = {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+    ...options.headers,
+  };
+
   if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
+
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || "Có lỗi xảy ra từ Server");
   return data;
@@ -17,21 +26,24 @@ const fetchWithAuth = async (endpoint, options = {}) => {
 // ── fetch multipart/form-data (upload file) ───────────────────────
 const fetchWithAuthForm = async (endpoint, formData, method = "POST") => {
   const token = localStorage.getItem("token");
-  const headers = {};
+  const headers = {
+    "Cache-Control": "no-cache", // ĐÃ FIX
+  };
+
   if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     method,
     headers,
     body: formData,
   });
+
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || "Lỗi server");
   return data;
 };
 
-// =================================================================
 // ADMIN API
-// =================================================================
 export const adminAPI = {
   // ── Overview & Analytics ────────────────────────────────────────
   getOverview: () => fetchWithAuth("/admin/overview"),
@@ -39,6 +51,15 @@ export const adminAPI = {
     fetchWithAuth(`/admin/music/analytics?period=${period}`),
   getUserAnalytics: () => fetchWithAuth("/admin/users/analytics"),
   getRevenueAnalytics: () => fetchWithAuth("/admin/revenue/analytics"),
+
+  // ── ETL ─────────────────────────────────────────────────────────
+  runETL: () => fetchWithAuth("/admin/etl/run", { method: "POST" }),
+  getETLStatus: (run_id = null) => {
+    const url = run_id
+      ? `/admin/etl/status?run_id=${run_id}`
+      : "/admin/etl/status";
+    return fetchWithAuth(url, { method: "GET" });
+  },
 
   // ── Songs ────────────────────────────────────────────────────────
   getSongs: (params = {}) =>
@@ -86,9 +107,7 @@ export const adminAPI = {
     }),
 };
 
-// =================================================================
 // AUTH API
-// =================================================================
 export const authAPI = {
   login: (credentials) =>
     fetchWithAuth("/auth/login", {
@@ -109,9 +128,7 @@ export const authAPI = {
     }),
 };
 
-// =================================================================
 // USER API
-// =================================================================
 export const userAPI = {
   getProfile: () => fetchWithAuth("/users/profile", { method: "GET" }),
   updateProfile: (data) =>
@@ -125,7 +142,10 @@ export const userAPI = {
     formData.append("avatar", file);
     const res = await fetch(`${BASE_URL}/users/avatar`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Cache-Control": "no-cache",
+      },
       body: formData,
     });
     const data = await res.json();
@@ -148,9 +168,7 @@ export const userAPI = {
     ),
 };
 
-// =================================================================
 // SONG API
-// =================================================================
 export const songAPI = {
   getSongs: async (options = {}) => {
     const { page = 1, limit = 20, genre_id, artist_id, search, sort } = options;
@@ -181,9 +199,7 @@ export const songAPI = {
   stream: (id) => `${BASE_URL}/songs/${id}/stream`,
 };
 
-// =================================================================
 // ARTIST API
-// =================================================================
 export const artistAPI = {
   getArtists: (queryString = "") =>
     fetchWithAuth(`/artists${queryString}`, { method: "GET" }),
@@ -196,25 +212,19 @@ export const artistAPI = {
     fetchWithAuth(`/artists/${id}/follow`, { method: "POST" }),
 };
 
-// =================================================================
 // ALBUM API
-// =================================================================
 export const albumAPI = {
   getAlbumById: (id) => fetchWithAuth(`/albums/${id}`, { method: "GET" }),
 };
 
-// =================================================================
 // GENRE API
-// =================================================================
 export const genreAPI = {
   getGenres: () => fetchWithAuth("/genres", { method: "GET" }),
   getGenreSongs: (id, queryString = "") =>
     fetchWithAuth(`/genres/${id}/songs${queryString}`, { method: "GET" }),
 };
 
-// =================================================================
 // PLAYLIST API
-// =================================================================
 export const playlistAPI = {
   getMyPlaylists: () => fetchWithAuth("/playlists", { method: "GET" }),
   createPlaylist: (data) =>
@@ -238,9 +248,7 @@ export const playlistAPI = {
     }),
 };
 
-// =================================================================
 // SEARCH API
-// =================================================================
 export const searchAPI = {
   searchAll: (keyword, limit = 5) =>
     fetchWithAuth(`/search?q=${keyword}&limit=${limit}`, { method: "GET" }),
